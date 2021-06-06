@@ -1,13 +1,13 @@
 #!/bin/bash
 
-numberOfGamesToPlay=100
-StopGameNumber=200
+numberOfGamesToPlay=2000
+StopGameNumber=500
 checkForDoubles=5
 gameMode="SelfplayRandomVsRandom"
 #gameMode="SelfplayNetworkVsRandom"
-iteration=1
+iteration=0
 
-for (( plyToStart=0; plyToStart<1; plyToStart++)); do 
+for (( plyToStart=0; plyToStart<500; plyToStart++)); do 
     python3 playGame.py ${numberOfGamesToPlay} ${StopGameNumber} ${gameMode} ${iteration} ${plyToStart} ${checkForDoubles}
     exitState=$?
     echo "Rename data/training_data_iteration_${iteration}_new.pkl -> data/training_data_iteration_${iteration}.pkl"
