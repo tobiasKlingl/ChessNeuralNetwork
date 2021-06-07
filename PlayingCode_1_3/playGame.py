@@ -116,10 +116,10 @@ def updateOutput(train, valid, test, mdata):
     mergedPos,mergedOutput,mergedIDs,mergedCounter=mdata[0],mdata[1],mdata[2],mdata[3]
     for i,(pos,out,ID,count) in enumerate(zip(mergedPos,mergedOutput,mergedIDs,mergedCounter)):
         randm=random.randint(1,100)
-        if(randm>=60):
+        if(randm>=10):
             if(printMergeInfo): print("\nINFO: Adding to Training!")
             train=update_data(i,train,pos,out,ID,count)
-        if(randm<40):
+        if(randm<10):
             if(printMergeInfo): print("\nINFO: Adding to Validation (randm="+str(randm)+")!")
             valid=update_data(i,valid,pos,out,ID,count)
         #else:
