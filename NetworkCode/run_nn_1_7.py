@@ -1,8 +1,8 @@
 from timeit import default_timer as timer
 import os
 
-#version="cupy"
-version="numba"
+version="cupy"
+#version="numba"
 
 if   version=="cupy" :
     import NNlib_1_7_cupy as nn

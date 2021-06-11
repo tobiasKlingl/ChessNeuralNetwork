@@ -183,7 +183,7 @@ def runSelfPlay(boardpositions,it,jobNum,startPly,nGames,Sizes,Weights,Biases,de
         print("ID (win percentage)=",idWin[0]+": ("+str(idWin[1])+")")
     for i in range(1):
         maxIndex=gameWinners.index(max(gameWinners))
-        mergeInfo: print("Write max element",i,"to file:")
+        if mergeInfo: print("Write max element",i,"to file:")
         maxPosition=gamePositions[maxIndex]
         maxVal=gameWinners[maxIndex]
         ID=gamePositionIDs[maxIndex]

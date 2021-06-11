@@ -13,7 +13,7 @@ import numpy as np
 import numba as nb
 
 def load_data(trainingsData):
-    datadir="../PlayingCode_1_3/data/"
+    datadir="../PlayingCode_1_4/data/"
     input=datadir+trainingsData
     print("Reading in file:",input)
     datalist=glob.glob(input)
