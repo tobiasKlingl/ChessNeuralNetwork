@@ -10,7 +10,7 @@ import random
 import sys
 import numba as nb
 
-Debug=False
+Debug=False#True
 NoOutput=True
 PrintMergeInfo=True
 Col=False
@@ -112,7 +112,8 @@ def playTheGames(startPly,Sizes,Weights,Biases,boardpositions,deb,noOut,mergeInf
     exitState=0
     for idx in range(N):
         idxString=str(idx)
-        gamePos,gameID,gameWinner,finishedInOne=play(idxString,Sizes,Weights,Biases,boardpositions[idx],deb,noOut,c)
+        boardposition=boardpositions[idx]
+        gamePos,gameID,gameWinner,finishedInOne=play(idxString,Sizes,Weights,Biases,boardposition,deb,noOut,c)
         if mergeInfo: print(idxString+": Got game",idx,": gameID,winner=",gameID,gameWinner)
         lenCounters=len(gameCounters)
         if lenCounters>0:

@@ -1,0 +1,13 @@
+*.py~
+*.sh~
+.gitignore~
+
+*/log~
+*/logs/log*~
+
+PlayingCode*/data/*
+PlayingCode*/log
+PlayingCode*/logs/*
+PlayingCode*/__pycache__/
+
+NetworkCode/__pychace__/

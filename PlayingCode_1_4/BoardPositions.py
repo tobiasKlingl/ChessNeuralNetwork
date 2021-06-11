@@ -223,7 +223,7 @@ class BoardPositions(object):
         if(self.EnPassant!=-1):
             enPassantMoves,enPassantNNinp=self.getEnPassantMoves(len(outOfCheckMoves),ownPositions[5],debug,noOutputMode)
             if(debug): print("DEBUG (BoardPositions (findAllowedMoves)): enPassantMoves=",enPassantMoves)
-            for move in enPassantMoves:
+            for i,move in enumerate(enPassantMoves):
                 outOfCheckMoves.append(move)
                 outOfCheckNNinp.append(enPassantNNinp[i])
         if len(outOfCheckMoves)>0:

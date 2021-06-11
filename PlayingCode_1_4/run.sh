@@ -1,11 +1,11 @@
 #!/bin/bash
 
-nGames=100         #number of games to play from each position
-StopGameNumber=300 #run each game until this ply
-upToPly=200        #run code until this ply
+nGames=5000        #number of games to play from each position
+StopGameNumber=999 #run each game until this ply
+upToPly=500        #run code until this ply
 checkForDoubles=5  #check if position has been played up this ply
-numJobs=4          #number of different cores to use
-simul=4
+numJobs=4          #number of jobs
+#simul=4           #number of parallel jobs
 iteration=0        #neural network iteration id. it=0 => random vs. random
 mergeInfo=true
 
