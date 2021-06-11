@@ -5,29 +5,12 @@ from timeit import default_timer as timer
 import pickle
 import numba as nb
 from numba.experimental import jitclass
-"""
-spec = [
-    #('PlayerColors'   , nb.types.ListType(nb.types.string)),# alternative: unicode_type
-    ('PlayerColors'   , nb.types.ListType(nb.types.unicode_type)),
-    ('Pieces'         , nb.types.ListType(nb.types.unicode_type)),
-    ('KingPositions'  , nb.int64[:,:]),
-    ('Castling'       , nb.int64[:,:]),
-    ('EnPassant'      , nb.int64[:]),
-    ('Winner'         , nb.int64),
-    ('GameMode'       , nb.types.string),
-    ('CurrentPlayer'  , nb.int64),
-    ('CurrentOpponent', nb.int64),
-    ('PlyNumber'      , nb.int64),
-    ('Reversed'       , nb.boolean),
-    ('Finished'       , nb.boolean),
-    ('IsPlayerInCheck', nb.boolean),
-    ('ChessBoard'     , nb.types.ListType(nb.types.ListType(nb.types.unicode_type))),
-    ('PieceBoards'    , nb.int64[:,:,:,:]),
-]
-"""
 
-#int_vector = nb.types.Array(dtype=nb.int64, ndim=1, layout="C")
-#spec = [('test', nb.types.ListType(int_vector))]
+"""
+@nb.njita
+def flipud(x):
+    return x[::-1]
+"""
 spec = [
     ('Players'         , nb.types.ListType(nb.types.int64)), # +1, -1
     ('Pieces'          , nb.types.ListType(nb.types.int64)),
@@ -43,9 +26,8 @@ spec = [
     ('Finished'        , nb.boolean),
     ('IsPlayerInCheck' , nb.boolean),
     ('ChessBoard'      , nb.types.Array(nb.types.int64, 2, 'C')),
-    ('PieceBoards'     , nb.types.Array(nb.types.float64, 4, 'C')), #nb.int64[:,:,:,:]),
+    ('PieceBoards'     , nb.types.Array(nb.types.int64, 4, 'C')), #nb.int64[:,:,:,:]),
 ]
-
 @jitclass(spec)
 class BoardPositions(object):
     def __init__(self):
@@ -63,54 +45,57 @@ class BoardPositions(object):
         self.Finished=False
         self.IsPlayerInCheck=False
         
-    def setChessBoard(self):
-        """
-        self.ChessBoard=nb.typed.List((nb.typed.List(("  ","  ","  ","  ","  ","  ","  ","  ")),
-                                       nb.typed.List(("  ","  ","  ","  ","  ","  ","  ","  ")),
-                                       nb.typed.List(("  ","  ","  ","  ","  ","  ","  ","  ")),
-                                       nb.typed.List(("  ","  ","  ","  ","  ","  ","  ","  ")),
-                                       nb.typed.List(("  ","  ","  ","  ","  ","  ","  ","  ")),
-                                       nb.typed.List(("  ","  ","  ","  ","  ","  ","  ","  ")),
-                                       nb.typed.List(("  ","  ","  ","  ","  ","  ","  ","  ")),
-                                       nb.typed.List(("  ","  ","  ","  ","  ","  ","  ","  ")) ))
-        """
+    def setChessBoard(self,idx):
         self.ChessBoard=np.zeros((8,8), dtype=np.int64)
         for playerSign in self.Players:
             playerNumerator=functions.getPlayerNumerator(playerSign)
-            for pieceNumber in self.Pieces:
+            for piece in self.Pieces:
+                pieceNumerator=piece-1
                 for row in range(8):
                     for col in range(8):
-                        if(self.PieceBoards[playerNumerator][pieceNumber][row][col] == 1):
-                            self.ChessBoard[row][col] = playerSign*pieceNumber
-                            if pieceNumber==1:
+                        if(self.PieceBoards[playerNumerator][pieceNumerator][row][col] == 1):
+                            self.ChessBoard[row][col] = playerSign*piece
+                            if piece==1:
                                 if playerSign==self.CurrentPlayer:
                                     self.KingPositions[0]=[col,row]
                                 else:
                                     self.KingPositions[1]=[col,7-row]
         if self.CurrentPlayer==-1:
             self.Reversed = True
-        #if(noOutputMode==False):
-        #functions.printChessBoard(self.ChessBoard,self.CurrentPlayer,-1,-1.0,False)
-        print("#### All pieces initialized! ######")
+        #functions.printChessBoard(self.ChessBoard,self.CurrentPlayer,-1,-1.0)
+        if(idx==0):
+            print("###### Board- ######")
+            print("## A B C D E F G H #")
+            for j in range(len(self.ChessBoard)):
+                ChessBoardString=str(8-j)+" "
+                colNum=j
+                if self.CurrentPlayer==1: colNum=7-j
+                printColor=""
+                for i in range(8):
+                    pieceUnicode=functions.getPieceUnicode(self.ChessBoard[colNum][i],False)
+                    ChessBoardString+=printColor+pieceUnicode+" "
+                ChessBoardString+=" "+str(8-j)
+                print(ChessBoardString)
+            print("# A B C D E F G H ##")
+            print("###### -Board ######\n")
         
-    def initializeBoard(self, colored, debug=False, noOutputMode=False):
-        self.PieceBoards=np.zeros((2,6,8,8), dtype=np.float64)
-        if(debug): print("DEBUG (BoardPositions (definePieceBoards)): All pieceBoards defined:",self.PieceBoards)
+    def initializeBoard(self, idx, colored, debug=False, noOutputMode=False):
+        self.PieceBoards=np.zeros((2,6,8,8), dtype=np.int64)
+        self.PieceBoards[0][5][1] = [1,1,1,1,1,1,1,1]                   #white pawns
+        self.PieceBoards[0][4][0][1],self.PieceBoards[0][4][0][6] = 1,1 #white knights
+        self.PieceBoards[0][3][0][2],self.PieceBoards[0][3][0][5] = 1,1 #white bishops
+        self.PieceBoards[0][2][0][0],self.PieceBoards[0][2][0][7] = 1,1 #white rook
+        self.PieceBoards[0][1][0][3] = 1                                #white queen
+        self.PieceBoards[0][0][0][4] = 1                                #white king
+        self.PieceBoards[1][5][6] = [1,1,1,1,1,1,1,1]                   #black pawns
+        self.PieceBoards[1][4][7][1],self.PieceBoards[1][4][7][6] = 1,1 #black knights
+        self.PieceBoards[1][3][7][2],self.PieceBoards[1][3][7][5] = 1,1 #black bishops
+        self.PieceBoards[1][2][7][0],self.PieceBoards[1][2][7][7] = 1,1 #black rook
+        self.PieceBoards[1][1][7][3] = 1                                #black queen
+        self.PieceBoards[1][0][7][4] = 1                                #black king
+        self.setChessBoard(idx)
+        if(debug): print("DEBUG (BoardPositions (definePieceBoards)): All pieceBoards initialized:",self.PieceBoards)
         
-        self.PieceBoards[0][6][1] = [1,1,1,1,1,1,1,1]                   #white pawns
-        self.PieceBoards[0][5][0][1],self.PieceBoards[0][5][0][6] = 1,1 #white knights
-        self.PieceBoards[0][4][0][2],self.PieceBoards[0][4][0][5] = 1,1 #white bishops
-        self.PieceBoards[0][3][0][0],self.PieceBoards[0][3][0][7] = 1,1 #white rook
-        self.PieceBoards[0][2][0][3] = 1 #white queen
-        self.PieceBoards[0][1][0][4] = 1 #white king
-        self.PieceBoards[1][6][6] = [1,1,1,1,1,1,1,1] #black pawns
-        self.PieceBoards[1][5][7][1],self.PieceBoards[1][5][7][6] = 1,1 #black knights
-        self.PieceBoards[1][4][7][2],self.PieceBoards[1][4][7][5] = 1,1 #black bishops
-        self.PieceBoards[1][3][7][0],self.PieceBoards[1][3][7][7] = 1,1 #black rook
-        self.PieceBoards[1][2][7][3] = 1 #black queen
-        self.PieceBoards[1][1][7][4] = 1 #black king
-        self.setChessBoard()#colored)
-
     def SetStartPosition(self,posFile):
         fileIn = open(posFile,"rb")
         self = pickle.load(fileIn)
@@ -122,7 +107,8 @@ class BoardPositions(object):
         fileOut.close()
     
     def getNormalMoves(self,ownPositions,debug=False, noOutputMode=False):
-        normalMoves,normalNNinp=[],[]
+        normalMoves=nb.typed.List()
+        normalNNinp=nb.typed.List()
         onlyCaptureMoves=False
         moveID=0
         for piece in self.Pieces:
@@ -130,13 +116,13 @@ class BoardPositions(object):
             if(debug): print("DEBUG (BoardPositions (getNormalMoves)): Current piece=",piece,"; ownPositions=",ownPositions[pieceNum])
             for piecePos_i in ownPositions[pieceNum]:
                 delta=moves.getBasicMoves(piece,piecePos_i,onlyCaptureMoves,debug)
-                if(debug): print("DEBUG (moves (getAllowedMovesForPiece)): piece=",functions.getPieceName(piece))
+                if(debug): print("DEBUG (BoardPositions (getNormalMoves)): piece=",functions.getPieceName(piece))
                 for Delta in delta:
                     validMove,capturedPiece=True,0
                     i=1
                     while validMove==True and capturedPiece==0:
                         Del=[d*i for d in Delta]
-                        if(debug): print("DEBUG (moves (getNormalMoves)): Del=",Del)
+                        if(debug): print("DEBUG (BoardPositions (getNormalMoves)): Del=",Del)
                         newPos,validMove,capturedPiece=moves.checkMove(self.CurrentPlayer,piece,piecePos_i,Del,self.ChessBoard,debug)
                         if(validMove==True):
                             if(piece==6 and piecePos_i[1]==6 and newPos[1]==7):
@@ -169,16 +155,15 @@ class BoardPositions(object):
                                     normalMoves.append(move)
                                     normalNNinp.append(nnInp)
                                     moveID+=1
-                            if(piece=="p" or piece=="n" or piece=="k"):
+                            if(piece==6 or piece==5 or piece==1): #(piece=="p" or piece=="n" or piece=="k"):
                                 break
                             else:
                                 i+=1
-        if(debug):
-            print("DEBUG (moves (getNormalMoves)): normalMoves=",normalMoves)
         return normalMoves,normalNNinp
 
     def getCastlingMoves(self,moveID,debug,noOutputMode=False):
-        castlingMoves,castlingNNinp=[],[]
+        castlingMoves=nb.typed.List()#[[np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x)] for x in range(0)])
+        castlingNNinp=nb.typed.List()#[np.ones(780,dtype=np.float64) for x in range(0)])
         kingPosition=self.KingPositions[0]
         chessBoard=self.ChessBoard
         if(kingPosition[0]==4 and kingPosition[1]==0):
@@ -205,7 +190,8 @@ class BoardPositions(object):
         return castlingMoves,castlingNNinp
 
     def getEnPassantMoves(self,moveID,pawnPositions,debug=False,noOutputMode=False):
-        enPassantMoves,enPassantNNinp=[],[]
+        enPassantMoves=nb.typed.List()#[[np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x),np.int64(x)] for x in range(0)])
+        enPassantNNinp=nb.typed.List()#[np.ones(780,dtype=np.float64) for x in range(0)])
         for pawn in pawnPositions:
             if(pawn[1]==4 and (pawn[0]==self.EnPassant-1 or pawn[0]==self.EnPassant+1)):
                 if(debug): print("INFO: En-passant move available for player",self.CurrentPlayer,"'s pawn at",pawn)
@@ -218,56 +204,53 @@ class BoardPositions(object):
                     moveID+=1
         return enPassantMoves,enPassantNNinp
     
-    def findAllowedMoves(self,net,debug=False,noOutputMode=False):
+    def findAllowedMoves(self,Sizes,Weights,Biases,debug=False,noOutputMode=False):
         ownPositions=functions.getPositions(self.ChessBoard,self.CurrentPlayer)
         oppPositions=functions.getPositions(self.ChessBoard,self.CurrentOpponent)
         if(debug):
             print("DEBUG (BoardPositions (findAllowedMoves)): Own piece positions of player:",self.CurrentPlayer  ,":",ownPositions)
             print("DEBUG (BoardPositions (findAllowedMoves)): Opp piece positions of player:",self.CurrentOpponent,":",oppPositions)
-        castlingMoves,castlingNNinp,enPassantMoves,enPassantNNinp=[],[],[],[]
-        normalMoves,normalNNinp=self.getNormalMoves(ownPositions,debug,noOutputMode)
+        outOfCheckMoves,outOfCheckNNinp=self.getNormalMoves(ownPositions,debug,noOutputMode)
+        if(debug): print("DEBUG (BoardPositions (findAllowedMoves)): normalMoves=",outOfCheckMoves)
+        if noOutputMode==False: print("self.Castling=",self.Castling)
         if(self.IsPlayerInCheck==False and (self.Castling[0][0]==1 or self.Castling[0][1]==1)):
-            castlingMoves,castlingNNinp=self.getCastlingMoves(len(normalMoves),debug,noOutputMode)
+            castlingMoves,castlingNNinp=self.getCastlingMoves(len(outOfCheckMoves),debug,noOutputMode)
+            if(debug): print("DEBUG (BoardPositions (findAllowedMoves)): castlingMoves=" ,castlingMoves)
+            for i,move in enumerate(castlingMoves):
+                outOfCheckMoves.append(move)
+                outOfCheckNNinp.append(castlingNNinp[i])
+        if noOutputMode==False: print("self.EnPassant=",self.EnPassant)
         if(self.EnPassant!=-1):
-            enPassantMoves,enPassantNNinp=self.getEnPassantMoves(len(normalMoves)+len(castlingMoves),ownPositions[0],debug,noOutputMode)
-        if(debug):
-            print("DEBUG (BoardPositions (findAllowedMoves)): normalMoves="   ,normalMoves)
-            print("DEBUG (BoardPositions (findAllowedMoves)): castlingMoves=" ,castlingMoves)
-            print("DEBUG (BoardPositions (findAllowedMoves)): enPassantMoves=",enPassantMoves)
-        outOfCheckMoves=normalMoves+castlingMoves+enPassantMoves
-        outOfCheckNNinpList=normalNNinp+castlingNNinp+enPassantNNinp
+            enPassantMoves,enPassantNNinp=self.getEnPassantMoves(len(outOfCheckMoves),ownPositions[5],debug,noOutputMode)
+            if(debug): print("DEBUG (BoardPositions (findAllowedMoves)): enPassantMoves=",enPassantMoves)
+            for move in enPassantMoves:
+                outOfCheckMoves.append(move)
+                outOfCheckNNinp.append(enPassantNNinp[i])
         if len(outOfCheckMoves)>0:
-            moveProbabilites=functions.moveProbs(self,net,outOfCheckNNinpList, debug)
+            moveProbabilites=functions.moveProbs(self,Sizes,Weights,Biases,outOfCheckNNinp, debug)
         else:
-            moveProbabilites=[]
+            moveProbabilities=np.ones((1,1),dtype=np.float64)
         return outOfCheckMoves,moveProbabilites
 
     def nextPly(self):
         # Reverse the board
         if(  self.Reversed==True ): self.Reversed=False
         elif(self.Reversed==False): self.Reversed=True
-        self.ChessBoard=np.flip(self.ChessBoard,0)
-        for playerNum,playerPieceBoards in enumerate(self.PieceBoards):
-            for pieceNum,piece in enumerate(playerPieceBoards):
-                self.PieceBoards[playerNum][pieceNum]=np.flip(self.PieceBoards[playerNum][pieceNum],0)
-        #self.PieceBoards=np.flip(self.PieceBoards,0)  <- TK eventuell reicht auch das?
+        self.ChessBoard[:]=self.ChessBoard[::-1]
+        self.PieceBoards=np.ascontiguousarray(self.PieceBoards[:,:,::-1])
         # Reverse the castling properties
-        helperCastling=self.Castling[0]
-        self.Castling[0]=self.Castling[1]
-        self.Castling[1]=helperCastling
-        # Reverse player <-> opponent
+        self.Castling[:]=self.Castling[::-1]
+        self.KingPositions[:]=self.KingPositions[::-1]
         helperPlayer=self.CurrentOpponent
         self.CurrentOpponent=self.CurrentPlayer
         self.CurrentPlayer=helperPlayer
-        # Reverse kingPositions
-        helperKingPositions=self.KingPositions[0]
-        self.KingPositions[0]=self.KingPositions[1]
-        self.KingPositions[1]=helperKingPositions
         # Increas ply number
         self.PlyNumber+=1
                             
     def playMove(self,move, writeMoveInfoList=False, debug=False, noOutputMode=False):
         player,opponent=self.CurrentPlayer,self.CurrentOpponent
+        playerNumerator=functions.getPlayerNumerator(player)
+        oppNumerator=functions.getPlayerNumerator(opponent)
         piece,pieceNew=move[0], move[1]
         oldPos=[move[2],move[3]]
         newPos=[move[4],move[5]] 
@@ -276,13 +259,13 @@ class BoardPositions(object):
         isEnPassant=move[9]
         returnStringList=[]
         if(writeMoveInfoList):
-            oldPosReadable=functions.getReadablePosition(player,oldPos,debug)
-            newPosReadable=functions.getReadablePosition(player,newPos,debug)
+            oldPosReadable=functions.getReadablePosition(player,oldPos[0],oldPos[1],debug)
+            newPosReadable=functions.getReadablePosition(player,newPos[0],newPos[1],debug)
             returnStringList.append("Player "+str(player)+": "+functions.getPieceName(piece)+" from "+oldPosReadable+" to "+newPosReadable)
         if  (capturedPiece!=0 and isEnPassant!=0):
             if(noOutputMode==False and debug): print("INFO: Player",player,"just captured via en-passant at",oldPos)
             oppPawn=[newPos[0],newPos[1]-1]
-            self.removePiece(opponent, 6, oppPawn, False)
+            self.removePiece(opponent,oppNumerator, 6, oppPawn, False)
             capturedPiece=6
             if(writeMoveInfoList):
                 returnStringList.append("Player "+str(player)+" captured "+functions.getPieceName(capturedPiece)+" via en-passant")
@@ -290,11 +273,11 @@ class BoardPositions(object):
             if(writeMoveInfoList):
                 returnStringList.append("Player "+str(player)+" captured "+functions.getPieceName(capturedPiece)+" at "+newPosReadable)
             for pieceOpp in self.Pieces:
-                self.removePiece(opponent, pieceOpp, newPos, False)
+                self.removePiece(opponent,oppNumerator, pieceOpp, newPos, False)
         elif(capturedPiece==0 and isEnPassant!=0):
             print("ERROR: En-passant is always capture move!")
-        self.removePiece(player, piece, oldPos, False)
-        self.setPiece(player, pieceNew, newPos, False)
+        self.removePiece(player,playerNumerator, piece, oldPos, False)
+        self.setPiece(player,playerNumerator, pieceNew, newPos, False)
         if(pieceNew!=piece):
             if(piece==6):
                 if(writeMoveInfoList): returnStringList.append("Player "+str(player)+"'s promoted his pawn to a "+functions.getPieceName(pieceNew)+" at "+newPosReadable)
@@ -302,15 +285,15 @@ class BoardPositions(object):
                 print("ERROR: Only pawns can be promoted.")
         if  (isCastling[0]==1): # castling long
             if(noOutputMode==False and debug): print("Player",player,"is CASTLING long!")
-            self.removePiece(player, 3, [0,0], False)
-            self.setPiece(   player, 3, [3,0], False)
+            self.removePiece(player,playerNumerator, 3, [0,0], False)
+            self.setPiece(   player,playerNumerator, 3, [3,0], False)
             self.Castling[0]=[0,0]
             if(writeMoveInfoList): returnStringList.append("Player "+str(player)+" castled long.")
             if(isEnPassant!=0):print("ERROR: Impossible to be en-passant and castle move at the same time!")
         elif(isCastling[1]==1): # castling short
             if(noOutputMode==False and debug): print("Player",player,"is CASTLING short!")
-            self.removePiece(player, 3, [7,0], False)
-            self.setPiece(   player, 3, [5,0], False)
+            self.removePiece(player,playerNumerator, 3, [7,0], False)
+            self.setPiece(   player,playerNumerator, 3, [5,0], False)
             self.Castling[0]=[0,0]
             if(writeMoveInfoList): returnStringList.append("Player "+str(player)+" castled short.")
             if(isEnPassant!=0):print("ERROR: Impossible to be en-passant and castle move at the same time!")
@@ -329,36 +312,38 @@ class BoardPositions(object):
                     if(noOutputMode==False and writeMoveInfoList==True):
                         print("INFO: Player",player,"is no longer allowed to castle short.")
                 self.Castling[0][1]=0
-        if(piece==6 and oldPos[1]==1 and newPos[1]==3):
+        if(piece==6 and oldPos[1]==1 and newPos[1]==3 and (self.ChessBoard[newPos[1]][newPos[0]-1]==opponent*6 or self.ChessBoard[newPos[1]][newPos[0]+1]==opponent*6)):
             self.EnPassant=newPos[0]
         else:
             self.EnPassant=-1
         return returnStringList,capturedPiece
 
-    def reverseMove(self,move,capturedPiece,castlingBeforeMove,enPassantBeforeMove):
+    def reverseMove(self,move,capturedPiece,castlingBeforeMove,enPassantBeforeMove,isPlayerInCheckBeforeMove):
         player,opponent=self.CurrentPlayer,self.CurrentOpponent
-        piece,pieceNew=move[0], move[1]
+        playerNumerator=functions.getPlayerNumerator(player)
+        oppNumerator=functions.getPlayerNumerator(opponent)
+        piece,pieceNew=move[0],move[1]
         oldPos=[move[2],move[3]]
         newPos=[move[4],move[5]] 
         capturedPiece=move[6]
         isCastling =[move[7],move[8]]
         isEnPassant=move[9]
-        self.removePiece(player, pieceNew, newPos, False)
-        self.setPiece(player, piece, oldPos, False)
+        self.removePiece(player,playerNumerator, pieceNew, newPos, False)
+        self.setPiece(player,playerNumerator, piece, oldPos, False)
         if  (capturedPiece!=0 and isEnPassant!=0):
             oppPawn=[newPos[0],newPos[1]-1]
-            self.setPiece(opponent, 6, oppPawn, False)
+            self.setPiece(opponent,oppNumerator, 6, oppPawn, False)
         elif(capturedPiece!=0 and isEnPassant==0):
-            self.setPiece(opponent, capturedPiece, newPos, False)
+            self.setPiece(opponent,oppNumerator, capturedPiece, newPos, False)
         if  (isCastling[0]==1): # castling long
-            self.setPiece(   player, 3, [0,0], False)
-            self.removePiece(player, 3, [3,0], False)
-            self.Castling=castlingBeforeMove
+            self.setPiece(   player,playerNumerator, 3, [0,0], False)
+            self.removePiece(player,playerNumerator, 3, [3,0], False)
         elif(isCastling[1]==1): # castling short
-            self.setPiece(   player, 3, [7,0], False)
-            self.removePiece(player, 3, [5,0], False)
-            self.Castling=castlingBeforeMove
+            self.setPiece(   player,playerNumerator, 3, [7,0], False)
+            self.removePiece(player,playerNumerator, 3, [5,0], False)
+        self.Castling=castlingBeforeMove
         self.EnPassant=enPassantBeforeMove
+        self.IsPlayerInCheck=isPlayerInCheckBeforeMove
 
     def setIsPlayerInCheck(self):
         playerIsInCheck=False
@@ -393,53 +378,51 @@ class BoardPositions(object):
                     i+=1
         self.IsPlayerInCheck=playerIsInCheck
                     
-    def removePiece(self, player, pieceNumber, oldPos, debug=False):
-        playerPieceBoardNum=-1
-        if  (player==+1): playerPieceBoardNum=0
-        elif(player==-1): playerPieceBoardNum=1
-        self.PieceBoards[playerPieceBoardNum][pieceNumber][oldPos[1]][oldPos[0]]=0
+    def removePiece(self, player,playerNumerator, piece, oldPos, debug=False):
+        pieceNumerator=piece-1
+        self.PieceBoards[playerNumerator][pieceNumerator][oldPos[1]][oldPos[0]]=0
         self.ChessBoard[oldPos[1]][oldPos[0]]=0
 
-    def setPiece(self, player, pieceNumber, newPos, debug=False):
-        playerPieceBoardNum=-1
-        if  (player==+1): playerPieceBoardNum=0
-        elif(player==-1): playerPieceBoardNum=1
-        self.PieceBoards[playerPieceBoardNum][pieceNumber][newPos[1]][newPos[0]]=1
-        self.ChessBoard[newPos[1]][newPos[0]]=player*pieceNumber
-        if(pieceNumber==1):
+    def setPiece(self, player,playerNumerator, piece, newPos, debug=False):
+        pieceNumerator=piece-1
+        self.PieceBoards[playerNumerator][pieceNumerator][newPos[1]][newPos[0]]=1
+        self.ChessBoard[newPos[1]][newPos[0]]=player*piece
+        if(piece==1):
             self.KingPositions[0]=newPos
 
     def setWinner(self,winner):
-        if  (winner==+1): playerPieceBoardNum=0
-        elif(winner==-1): playerPieceBoardNum=1
-        self.Winner=playerPieceBoardNum
+        self.Winner=winner
 
     def getWinner(self):
         return self.Winner
 
     def getInput(self):
         pB=self.PieceBoards
+        #print("pB=",pB)
         if(self.CurrentPlayer==+1): #white
-            flattenedInput=np.vstack((pB[0][0].ravel(),pB[0][1].ravel(),pB[0][2].ravel(),pB[0][3].ravel(),pB[0][4].ravel(),pB[0][5].ravel(),\
-                                      pB[1][0].ravel(),pB[1][1].ravel(),pB[1][2].ravel(),pB[1][3].ravel(),pB[1][4].ravel(),pB[1][5].ravel())).ravel()
+            #flattenedInput=np.vstack((pB[0][0].ravel(),pB[0][1].ravel(),pB[0][2].ravel(),pB[0][3].ravel(),pB[0][4].ravel(),pB[0][5].ravel(),\
+            #                          pB[1][0].ravel(),pB[1][1].ravel(),pB[1][2].ravel(),pB[1][3].ravel(),pB[1][4].ravel(),pB[1][5].ravel())).ravel()
+            flattenedInput=pB.reshape(768,)
         elif(self.CurrentPlayer==-1): #Black
-            flattenedInput=np.vstack((pB[1][0].ravel(),pB[1][1].ravel(),pB[1][2].ravel(),pB[1][3].ravel(),pB[1][4].ravel(),pB[1][5].ravel(),\
-                                      pB[0][0].ravel(),pB[0][1].ravel(),pB[0][2].ravel(),pB[0][3].ravel(),pB[0][4].ravel(),pB[0][5].ravel())).ravel()
+            #flattenedInput=np.vstack((pB[1][0].ravel(),pB[1][1].ravel(),pB[1][2].ravel(),pB[1][3].ravel(),pB[1][4].ravel(),pB[1][5].ravel(),\
+            #                          pB[0][0].ravel(),pB[0][1].ravel(),pB[0][2].ravel(),pB[0][3].ravel(),pB[0][4].ravel(),pB[0][5].ravel())).ravel()
+            flattenedInput=np.ascontiguousarray(pB[::-1]).reshape(768,)
         else:
             flattenedInput=np.vstack((pB[0][0].ravel(),pB[0][1].ravel(),pB[0][2].ravel(),pB[0][3].ravel(),pB[0][4].ravel(),pB[0][5].ravel(),\
                                     pB[1][0].ravel(),pB[1][1].ravel(),pB[1][2].ravel(),pB[1][3].ravel(),pB[1][4].ravel(),pB[1][5].ravel())).ravel()
             print("ERROR (BoardPositions (getInput): Wrong player input=",self.CurrentPlayer)
-        castlingArray=np.zeros(4,dtype=np.float64)
-        enpassantArray=np.zeros(8,dtype=np.float64)
+        castlingArray=np.zeros(4,dtype=np.int64)
+        enpassantArray=np.zeros(8,dtype=np.int64)
         if(self.Castling[0][0]==1): castlingArray[0]=1
         if(self.Castling[0][1]==1): castlingArray[1]=1
         if(self.Castling[1][0]==1): castlingArray[2]=1
         if(self.Castling[1][1]==1): castlingArray[3]=1
         if(self.EnPassant!=-1): enpassantArray[self.EnPassant]=1
         flattenedInput=np.concatenate((flattenedInput,enpassantArray,castlingArray))
+        #print("flattenedInput=",flattenedInput)
         return flattenedInput
 
-    def reconstructGameState(self,flattenedInput,plyNumber):
+    def reconstructGameState(self,idx,flattenedInput,plyNumber):
         if plyNumber%2==1:
             self.CurrentPlayer,self.CurrentOpponent=+1,-1
             self.Reversed = False
@@ -447,24 +430,32 @@ class BoardPositions(object):
             self.CurrentPlayer,self.CurrentOpponent=-1,+1
             self.Reversed = True
         self.PlyNumber=plyNumber
-        self.PieceBoards=flattenedInput[0:768]
-        self.PieceBoards.shape = (2,6,8,8)
-        if self.CurrentPlayer==-1:
-            self.PieceBoards=np.flip(self.PieceBoards,0)  #TK bei nextPly() auch so geflippt?
-        self.setChessBoard()
+        if self.CurrentPlayer==+1:
+            self.PieceBoards=flattenedInput[0:768].reshape((2,6,8,8))
+        else:
+            self.PieceBoards=np.ascontiguousarray(flattenedInput[0:768].reshape((2,6,8,8))[::-1])
+        #self.PieceBoards=flattenedInput[0:768].reshape((2,6,8,8))
+        #if self.CurrentPlayer==-1:
+        #    for playerNum,playerPieceBoards in enumerate(self.PieceBoards):
+        #        for pieceNumerator,piece in enumerate(playerPieceBoards):
+        #            self.PieceBoards[playerNum][pieceNumerator][:]=piece[::-1]
+        self.setChessBoard(idx)
         enPassantArray=flattenedInput[768:776]
-        print("enPassantArray=",enPassantArray)
         self.EnPassant = -1
         for i,elem in enumerate(enPassantArray):
             if elem==1:
                 self.EnPassant=i
         castlingArray =flattenedInput[776:780]
-        print("castlingArray=",castlingArray)
-        print("self.EnPassant=",self.EnPassant)
         self.Castling[0][0]=castlingArray[0]
         self.Castling[0][1]=castlingArray[1]
         self.Castling[1][0]=castlingArray[2]
         self.Castling[1][1]=castlingArray[3]
+        self.Finished=False
+        if idx==0:
+            print("flattenedInput=",flattenedInput)
+            print("castlingArray=",castlingArray)
+            print("self.EnPassant=",self.EnPassant)
+            print("self.CurrentPlayer,self.CurrentOpponent,self.Finished=",self.CurrentPlayer,self.CurrentOpponent,self.Finished)
 
     def getInputID(self,debug):
         if(debug): print("ChessBoard=",self.ChessBoard)
@@ -479,10 +470,10 @@ class BoardPositions(object):
                 else:
                     num=str(countEmpty)
                 if(playerSign*col>0):
-                    InputIDString+=num+functions.getPieceName(col)
+                    InputIDString+=num+functions.getPieceName(col)[0]
                     countEmpty=0
                 elif(oppSign*col>0):
-                    InputIDString+=num+functions.getPieceName(col).upper()
+                    InputIDString+=num+functions.getPieceName(col)[0].upper()
                     countEmpty=0
                 else:
                     countEmpty+=1
@@ -499,10 +490,8 @@ class BoardPositions(object):
         if(self.EnPassant!=-1):
             xpos_plus=self.EnPassant+1
             xpos_minus=self.EnPassant-1
-            if((xpos_plus<=7 and self.ChessBoard[4][xpos_plus]==playerAbb+"p") or (xpos_minus>=0 and self.ChessBoard[4][xpos_minus]==playerAbb+"p")):
+            ownSign=self.CurrentPlayer
+            if((xpos_plus<=7 and ownSign*self.ChessBoard[4][xpos_plus]==6) or (xpos_minus>=0 and ownSign*self.ChessBoard[4][xpos_minus]==6)):
                 InputIDString+="_"+str(self.EnPassant)
         if(debug): print("InputIDString =",InputIDString)
         return InputIDString
-
-    def setGameMode(self,gameMode):
-        self.GameMode=gameMode

@@ -169,6 +169,7 @@ class Network(object):
     def feedforward(self,a,debug=False):
         a=np.ascontiguousarray(a.transpose())
         for i,(b,w) in enumerate(zip(self.biases, self.weights)):
+            print("a=",a)
             if i==self.num_layers-2:
                 a = sigmoid(w@a + b)
             else:

@@ -134,16 +134,32 @@ def getNNInput(boardpositions, move, debug, noOutputMode):
     boardpositions.EnPassant=enPassantBeforeMove
     return willPlayerBeInCheck,nnInput
 
-def moveProbs(boardpositions,net,nnInputs,debug):
+def sigmoid(z):
+    return 1.0/(1.0+np.exp(-z))
+
+def relu(z):
+    #return np.maximum(z, 0)
+    return z*(z>0)
+
+def moveProbs(boardpositions,Sizes,Weights,Biases,nnInputs,debug):
     if("SelfplayNetwork" in boardpositions.GameMode and boardpositions.CurrentPlayer==0):
-        probs=net.feedforward(nnInputs)[0]
-        moveProbabilities=probs.tolist()
-        if(debug): print("Probabilities to win:",moveProbabilities)
+        a=np.ascontiguousarray(nnInputs.transpose())
+        Num_layers=len(Sizes)
+        for i,(b,w) in enumerate(zip(Biases, Weights)):
+            if i==Num_layers-2:
+                #print("sigmoid")
+                a = sigmoid(w@a + b)
+            else:
+                #print("relu")
+                a = relu(w@a + b)
+        moveProbabilities=a[0].tolist()
+        if(debug):
+            print("Probabilities to win:",moveProbabilities)
     else:
         moveProbabilities=[1.0 for i in nnInputs]
     return moveProbabilities
 
-def nextMove(net,boardpositions,colored=False,debug=False,noOutputMode=False):
+def nextMove(boardpositions,Sizes,Weights,Biases,colored=False,debug=False,noOutputMode=False):
     #moveStartTime=timer()
     gameMode=boardpositions.GameMode
     player=boardpositions.CurrentPlayer
@@ -151,7 +167,7 @@ def nextMove(net,boardpositions,colored=False,debug=False,noOutputMode=False):
     boardpositions.setIsPlayerInCheck(debug)
     playerInCheck=boardpositions.IsPlayerInCheck
     if(playerInCheck==True and noOutputMode==False): print("Player",player,"is in CHECK!")
-    outOfCheckMoves,moveProbabilities=boardpositions.findAllowedMoves(net,debug,noOutputMode)
+    outOfCheckMoves,moveProbabilities=boardpositions.findAllowedMoves(Sizes,Weights,Biases,debug,noOutputMode)
     if(len(outOfCheckMoves)>0):
         if(len(outOfCheckMoves)<=8):
             #Check if only king is left and opponent can still win!

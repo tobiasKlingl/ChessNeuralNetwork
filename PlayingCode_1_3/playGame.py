@@ -6,21 +6,21 @@ import multiprocessing as mp
 import pickle
 import os
 import random
+import json
 import copy
 import sys
 sys.path.append("../NetworkCode/")
-import NNlib_1_7 as nn
+#import NNlib_1_7_numba as nn
 
 debug=False
 noOutputMode=True
-printMergeInfo=False#True
+printMergeInfo=True
 colored=False
-useMultiprocessing=True#False
+useMultiprocessing=False
 
 #neurons:[input, --hidden-- ,output] layer
-sizes    =[780  ,1500,250,150,    1]
-Inputname="NN_SMGD_L2_maxEpochs_500_nEpochs_20_numEtaRed_10_miniBatchSize_100_etaInit_0.5_lmbda_0.5_mu_0.2"
-
+sizes    =[780  ,500,250,50,1]
+Inputname="NADAM_L2_maxEpochs_500_nEpochs_20_EtaRed_20_mBatchSize_100_eta_0.1_lmbda_1.5_mu_0.2_relu"
 gameMode="SelfplayRandomVsRandom"
 #gameMode="SelfplayNetworkVsRandom"
 #gameMode="SelfplayNetworkVsNetwork"
@@ -45,12 +45,19 @@ boardpositions.setGameMode(gameMode)
 
 iterationMinus1=iteration-1
 if(gameMode=="SelfplayNetworkVsRandom" or gameMode=="SelfplayNetworkVsNetwork"):
-    mainDir="/home/tobias/MachineLearning/Chess/NetworkCode/saves/"
+    mainDir="/home/tobias/ChessNeuralNetwork/NetworkCode/saves/"
     subDir ="iteration_"+str(iterationMinus1)+"/"
     print("Loading Network:",mainDir+subDir+Inputname)
-    net=nn.load(mainDir+subDir+Inputname)
+    f = open(mainDir+subDir+Inputname, "r")
+    data = json.load(f)
+    f.close()
+    Sizes  =data["sizes"]
+    Weights=[np.array(w) for w in data["weights"]]
+    Biases =[np.array(b) for b in data["biases"]]
 else:
-    net=""
+    Sizes  =[780,3,1]  # <- just dummy network
+    Weights=[np.zeros((y,x),dtype=np.float64) for y,x in zip(Sizes[1:],Sizes[:-1])]
+    Biases =[np.zeros((y,1),dtype=np.float64) for y   in Sizes[1:]]
     
 def mergeStuff(i,j,ID,winner,counter,mergedWinner,mergedCounter):
     if(printMergeInfo):
@@ -141,7 +148,7 @@ def play(idx,boardState):
         if(noOutputMode==False):
             if colored:print("\n"+idxString+": \033[1;31;48m###### Ply ",boardState.PlyNumber," (player:",str(boardState.CurrentPlayer)+") ######\033[1;37;48m")
             else:      print("\n"+idxString+": ###### Ply "             ,boardState.PlyNumber," (player:",str(boardState.CurrentPlayer)+") ######")
-        boardState.Finished=functions.nextMove(net,boardState,colored,debug,noOutputMode)
+        boardState.Finished=functions.nextMove(boardState,Sizes,Weights,Biases,colored,debug,noOutputMode)
         if(boardState.PlyNumber==initialPlyNumber):
             finishedInOne=boardState.Finished
             boardInput=boardState.getInput()
@@ -157,16 +164,20 @@ def play(idx,boardState):
     if(colored==True): textColor,resetColor="\033[1;31;49m","\033[1;37;49m"
     if(winner==initialPlayer):
         won=1
-        if noOutputMode==False: print(textColor+idxString+": Player",winner,"won this game!!! in",boardState.PlyNumber,"plys.",resetColor)
+        #if noOutputMode==False:
+        print(textColor+idxString+": Player",winner,"won this game!!! in",boardState.PlyNumber,"plys.",resetColor)
     elif(winner==initialOpponent):
         won=0
-        if noOutputMode==False: print(textColor+idxString+": Player",winner,"won this game!!! in",boardState.PlyNumber,"plys.",resetColor)
+        #if noOutputMode==False:
+        print(textColor+idxString+": Player",winner,"won this game!!! in",boardState.PlyNumber,"plys.",resetColor)
     elif(winner==0.5):
         won=0.5
-        if noOutputMode==False: print(textColor+idxString+": Game ended remis!!!",resetColor)
+        #if noOutputMode==False:
+        print(textColor+idxString+": Game ended remis!!!",resetColor)
     else:
         print(idxString+": ERROR: Unknown value for winner! winner=",winner)
-    if noOutputMode==False: print(idxString+": Time for game number ("+idxString+") =",timer()-start_timeit)
+    #if noOutputMode==False:
+    print(idxString+": Time for game number ("+idxString+") =",timer()-start_timeit)
     return boardInput,boardInputID,won,finishedInOne
         
 if(gameMode=="VsComputer"):
@@ -239,6 +250,12 @@ if("Selfplay" in gameMode):
     start_timeit = timer()
     print("\nNow merge data of ply",plyToStart)
     merged_data=mergePositions(gamePositions, gamePositionIDs, winners)
+
+    print("\nNow merge the data with the data from previous plys!")
+    train_data,valid_data,test_data=updateOutput(train_data, valid_data, test_data, merged_data)
+    fileOut = open("data/training_data_iteration_"+str(iteration)+"_new.pkl", "wb")
+    pickle.dump([train_data,valid_data,test_data],fileOut)
+    fileOut.close()
     
     #Write the most promising position to file
     positions=merged_data[0]
@@ -260,11 +277,6 @@ if("Selfplay" in gameMode):
     pickle.dump(posToWrite,writeBestPos)
     writeBestPos.close()
     
-    print("\nNow merge the data with the data from previous plys!")
-    train_data,valid_data,test_data=updateOutput(train_data, valid_data, test_data, merged_data)
-    fileOut = open("data/training_data_iteration_"+str(iteration)+"_new.pkl", "wb")
-    pickle.dump([train_data,valid_data,test_data],fileOut)
-    fileOut.close()
     print("Time for writing all the stuff to file=",timer()-start_timeit)
     if exitState==1:
         sys.exit(1)

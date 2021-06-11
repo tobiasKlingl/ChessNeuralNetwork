@@ -1,20 +1,21 @@
 #!/bin/bash
 
-numberOfGamesToPlay=1
-StopGameNumber=500
-checkForDoubles=5
-gameMode="SelfplayRandomVsRandom"
-#gameMode="SelfplayNetworkVsRandom"
-iteration=0
+nGames=100         #number of games to play from each position
+StopGameNumber=300 #run each game until this ply
+upToPly=200        #run code until this ply
+checkForDoubles=5  #check if position has been played up this ply
+numJobs=4          #number of different cores to use
+simul=4
+iteration=0        #neural network iteration id. it=0 => random vs. random
+mergeInfo=true
 
-for (( plyToStart=0; plyToStart<1; plyToStart++)); do 
-    python3 playGame.py ${numberOfGamesToPlay} ${StopGameNumber} ${gameMode} ${iteration} ${plyToStart} ${checkForDoubles}
-    exitState=$?
-    echo "Rename data/training_data_iteration_${iteration}_new.pkl -> data/training_data_iteration_${iteration}.pkl"
-    mv data/training_data_iteration_${iteration}_new.pkl data/training_data_iteration_${iteration}.pkl
-    echo "exitState=$exitState"
-    if [[ $exitState -eq 1 ]]; then
-    	echo "exitState = $exitState ! Breaking loop!"
-    	break
-    fi
+for (( job=0; job<numJobs; job++ )); do
+    echo "job, nGames, StopGameNumber, upToPly, checkForDoubles, iteration: ${job}, ${nGames}, ${StopGameNumber}, ${upToPly}, ${checkForDoubles}, ${iteration}"
+    python playGames.py ${nGames} ${StopGameNumber} ${upToPly} ${checkForDoubles} ${job} ${iteration} ${mergeInfo} &> logs/log_${job} &
+    process_id=$!
+    echo "Job ${job} started: ID=${process_id}"
 done
+
+wait
+echo "Done waiting! Now merge the files."
+python mergeTrainFiles.py ${numJobs} ${iteration} ${mergeInfo}

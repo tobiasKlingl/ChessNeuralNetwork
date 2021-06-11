@@ -207,7 +207,7 @@ class BoardPositions(object):
                     moveID+=1
         return enPassantMoves,enPassantNNinp
     
-    def findAllowedMoves(self,net,debug=False,noOutputMode=False):
+    def findAllowedMoves(self,Sizes,Weights,Biases,debug=False,noOutputMode=False):
         ownPositions=self.getPositions(self.CurrentPlayer)
         oppPositions=self.getPositions(self.CurrentOpponent)
         if(debug):
@@ -227,7 +227,7 @@ class BoardPositions(object):
         outOfCheckNNList=normalNNinp+castlingNNinp+enPassantNNinp
         if len(outOfCheckMoves)>0:
             outOfCheckNNinp=np.vstack(normalNNinp+castlingNNinp+enPassantNNinp)
-            moveProbabilites=functions.moveProbs(self,net,outOfCheckNNinp, debug)
+            moveProbabilites=functions.moveProbs(self,Sizes,Weights,Biases,outOfCheckNNinp, debug)
         else:
             moveProbabilites=[]
         return outOfCheckMoves,moveProbabilites
@@ -435,6 +435,7 @@ class BoardPositions(object):
 
     def getInput(self):
         pB=self.PieceBoards
+        #print("pB=",pB)
         if(self.CurrentPlayer==0):
             flattenedInput=np.vstack((pB[0][0].ravel(),pB[0][1].ravel(),pB[0][2].ravel(),pB[0][3].ravel(),pB[0][4].ravel(),pB[0][5].ravel(),\
                                       pB[1][0].ravel(),pB[1][1].ravel(),pB[1][2].ravel(),pB[1][3].ravel(),pB[1][4].ravel(),pB[1][5].ravel())).ravel()
@@ -451,6 +452,7 @@ class BoardPositions(object):
         if(self.Castling[1][1]==True): castlingArray[3]=1
         if(self.EnPassant[0]==True):   enpassantArray[self.EnPassant[1][0]]=1
         flattenedInput=np.concatenate((flattenedInput,enpassantArray,castlingArray))
+        #print("flattenedInput=",flattenedInput)
         return flattenedInput
 
     def reconstructGameState(self,flattenedInput,plyNumber):

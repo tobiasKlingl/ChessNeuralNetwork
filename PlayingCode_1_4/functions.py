@@ -3,6 +3,7 @@ import random
 from timeit import default_timer as timer
 from numba import jit,njit,types,int64,typed
 
+    
 @njit(cache=True)
 def getPlayerNumerator(player):
     if  (player==+1): numerator=0
@@ -18,37 +19,37 @@ def getOpponent(player):
     return opponent
 
 @njit(cache=True)
-def getReadablePosition(player,pos,debug=False):
-    if  (pos[0]==0): xpos="A"
-    elif(pos[0]==1): xpos="B"
-    elif(pos[0]==2): xpos="C"
-    elif(pos[0]==3): xpos="D"
-    elif(pos[0]==4): xpos="E"
-    elif(pos[0]==5): xpos="F"
-    elif(pos[0]==6): xpos="G"
-    elif(pos[0]==7): xpos="H"
+def getReadablePosition(player,x,y,debug=False):
+    if  (x==0): xpos="A"
+    elif(x==1): xpos="B"
+    elif(x==2): xpos="C"
+    elif(x==3): xpos="D"
+    elif(x==4): xpos="E"
+    elif(x==5): xpos="F"
+    elif(x==6): xpos="G"
+    elif(x==7): xpos="H"
     else:
         xpos=""
-        print("ERROR (functions (getReadablePosition)): pos[0]=",pos[0]," is unknown!")
-    if  (player==+1): ypos=str(pos[1]+1)
-    elif(player==-1): ypos=str(7-pos[1]+1)
+        print("ERROR (functions (getReadablePosition)): pos[0]=",x," is unknown!")
+    if  (player==+1): ypos=str(y+1)
+    elif(player==-1): ypos=str(7-y+1)
     else:
         ypos=""
         print("ERROR (functions (getReadablePosition)): player=",player," is unknown!")
     readablePosition=xpos+ypos
-    if(debug): print("DEBUG (functions (getReadablePosition)): Converted position:",pos,"into:",readablePosition)
+    if(debug): print("DEBUG (functions (getReadablePosition)): Converted position:",x,y,"into:",readablePosition)
     return readablePosition
 
 @njit(cache=True)
 def getPieceName(pieceAbb):
     name=""
     pieceNumber=abs(pieceAbb)
-    if   pieceNumber==1: name=="k" 
-    elif pieceNumber==2: name=="q" 
-    elif pieceNumber==3: name=="r" 
-    elif pieceNumber==4: name=="b" 
-    elif pieceNumber==5: name=="n" 
-    elif pieceNumber==6: name=="p" 
+    if   pieceNumber==1: name="king" 
+    elif pieceNumber==2: name="queen" 
+    elif pieceNumber==3: name="rook" 
+    elif pieceNumber==4: name="bishop" 
+    elif pieceNumber==5: name="night" 
+    elif pieceNumber==6: name="pawn" 
     else:print("ERROR (BoardPositions (getPieceNumber)): PieceNumber",pieceNumber,"unknown!")
     return name
 
@@ -76,69 +77,99 @@ def getPieceUnicode(piece,colored):
 
 @njit(cache=True)
 def createPieceListforPrintOut(readableMoveList,prob,colored=False,debug=False):
-    sortedList=[]
+    SortedList=typed.List()
     pawnMoves  ="  PAWN: "
     knightMoves="  KNIGHT: "
     bishopMoves="  BISHOP: "
     rookMoves  ="  ROOK: "
     queenMoves ="  QUEEN: "
     kingMoves  ="  KING: "
-    for ID,move in enumerate(readableMoveList):
+    #+",\033[1;37;49m"+str(prob[ID])+") ; "
+    #+","+str(prob[ID])+") ; "
+    #percentages=prob.astype(np.int32)
+    for ID,readableMove in enumerate(readableMoveList):
         if colored:
-            moveWithID="\033[1;34;49m"+move[1]+"->"+move[2]+"\033[1;37;49m(\033[1;32;49m"+str(ID)+",\033[1;37;49m"+str(prob[ID])+") ; "
+            moveWithID="\033[1;34;49m"+readableMove[1]+"->"+readableMove[2]+"\033[1;37;49m(\033[1;32;49m"+str(ID)+",\033[1;37;49m"+str(prob[ID])+") ; "
         else:
-            moveWithID=move[1]+"->"+move[2]+"("+str(ID)+","+str(prob[ID])+") ; "
-        if  ("p" in move): pawnMoves+=moveWithID
-        elif("n" in move): knightMoves+=moveWithID
-        elif("b" in move): bishopMoves+=moveWithID
-        elif("r" in move): rookMoves+=moveWithID
-        elif("q" in move): queenMoves+=moveWithID
-        elif("k" in move): kingMoves+=moveWithID
+            moveWithID=readableMove[1]+"->"+readableMove[2]+"("+str(ID)+","+str(prob[ID])+") ; "
+        if  (readableMove[0]=="pawn"):
+            pawnMoves+=moveWithID
+        elif(readableMove[0]=="night"):
+            knightMoves+=moveWithID
+        elif(readableMove[0]=="bishop"):
+            bishopMoves+=moveWithID
+        elif(readableMove[0]=="rook"):
+            rookMoves+=moveWithID
+        elif(readableMove[0]=="queen"):
+            queenMoves+=moveWithID
+        elif(readableMove[0]=="king"):
+            kingMoves+=moveWithID
         else:
             print("ERROR (functions (createPieceListforPrintOut)): unknown pieceName")
-    sortedList.append(pawnMoves)
-    sortedList.append(knightMoves)
-    sortedList.append(bishopMoves)
-    sortedList.append(rookMoves)
-    sortedList.append(queenMoves)
-    sortedList.append(kingMoves)
-    return sortedList
+    SortedList.append(kingMoves)
+    SortedList.append(queenMoves)
+    SortedList.append(rookMoves)
+    SortedList.append(bishopMoves)
+    SortedList.append(knightMoves)
+    SortedList.append(pawnMoves)
+    return SortedList
 
 @njit(cache=True)
 def printMoves(player,moveList,colored,probNormed,debug=False):
-    readableMoveList=[]
+    readableMoveList=typed.List()
     if(debug): print("moveList=",moveList)
     for i,move in enumerate(moveList):
         piece=move[0]
+        pieceName=getPieceName(piece)
         pieceNew=move[1]
-        capturedPiece=move[4]
-        castling=move[5]
-        enPassant=move[6]
-        pos_before=getReadablePosition(player,move[2],debug)
-        pos_after=getReadablePosition(player,move[3],debug)
-        if(castling[0]==True):
-            readableMove=[piece,pos_before,pos_after+"(White CASTLING long)"]
-        elif(castling[1]==True):
-            readableMove=[piece,pos_before,pos_after+"(Black CASTLING short)"]
+        pieceNameNew=getPieceName(pieceNew)
+        capturedPiece=move[6]
+        castlingL=move[7]
+        castlingS=move[8]
+        enPassant=move[9]
+        pos_before=getReadablePosition(player,move[2],move[3],debug)
+        pos_after=getReadablePosition( player,move[4],move[5],debug)
+        if(castlingL==True):
+            readableMove=[pieceName,pos_before,pos_after+"(White CASTLING long)"]
+        elif(castlingS==True):
+            readableMove=[pieceName,pos_before,pos_after+"(Black CASTLING short)"]
         else:
-            readableMove=[piece,pos_before,pos_after]
-        if(capturedPiece!=""):
-            if(enPassant==True):
+            readableMove=[pieceName,pos_before,pos_after]
+        if(capturedPiece!=0):
+            if(enPassant!=0):
                 readableMove[2]+="(Piece CAPTURED via en-passant)"
-            elif(piece=="p" and pieceNew!="p"):
-                readableMove[2]+="(Piece CAPTURED + promtion: "+pieceNew+")"
+            elif(abs(piece)==6 and abs(pieceNew)!=6):
+                readableMove[2]+="(Piece CAPTURED + promtion: "+pieceNameNew+")"
             else:
                 readableMove[2]+="(Piece CAPTURED)"
         else:
-            if(piece=="p" and pieceNew!="p"):
-                readableMove[2]+="(promotion: "+pieceNew+")"
-        if(debug): print("DEBUG (functions (printMoves)): readableMove=",readableMove)
+            if(abs(piece)==6 and abs(pieceNew)!=6):
+                readableMove[2]+="(promotion: "+pieceNameNew+")"
+        if(debug):
+            print("DEBUG (functions (printMoves)): readableMove=",readableMove)
         readableMoveList.append(readableMove)
-    sortedLists=createPieceListforPrintOut(readableMoveList,probNormed,colored,debug)
+    SortedLists=createPieceListforPrintOut(readableMoveList,probNormed,colored,debug)
     print("INFO (functions (printMoves)): Moves for player",player,":")
-    for list in sortedLists:
+    for list in SortedLists:
         print(list)
 
+@njit(cache=True)
+def quickPrint(boardpositions,string):
+        print("# Board after",string,"#")
+        print("## A B C D E F G H #")
+        for j in range(len(boardpositions.ChessBoard)):
+            ChessBoardString=str(8-j)+" "
+            colNum=j
+            if boardpositions.CurrentPlayer==1: colNum=7-j
+            printColor=""
+            for i in range(8):
+                pieceUnicode=getPieceUnicode(boardpositions.ChessBoard[colNum][i],False)
+                ChessBoardString+=printColor+pieceUnicode+" "
+            ChessBoardString+=" "+str(8-j)
+            print(ChessBoardString)
+        print("# A B C D E F G H ##")
+        print("###### -Board ######\n")
+        
 @njit(cache=True)
 def getNNInput(boardpositions, move, debug, noOutputMode):
     isPlayerInCheckBeforeMove=boardpositions.IsPlayerInCheck
@@ -146,125 +177,119 @@ def getNNInput(boardpositions, move, debug, noOutputMode):
     enPassantBeforeMove = boardpositions.EnPassant
    
     moveInfo,captPiece=boardpositions.playMove(move, False, debug, noOutputMode)
+    if(debug): quickPrint(boardpositions,"move")
     boardpositions.setIsPlayerInCheck()
     willPlayerBeInCheck=boardpositions.IsPlayerInCheck
 
-    #if("SelfplayNetwork" in boardpositions.GameMode):
-    #    nnInput=boardpositions.getInput() #Potential performance boost in this function
-    #else:
-    nnInput=np.ones(780,dtype=np.float64)
-        
-    #reverseThePlayedMove
-    boardpositions.reverseMove(move, captPiece, castlingBeforeMove, enPassantBeforeMove)
-    boardpositions.IsPlayerInCheck=isPlayerInCheckBeforeMove
-    boardpositions.Castling=castlingBeforeMove
-    boardpositions.EnPassant=enPassantBeforeMove
+    if("SelfplayNetwork" in boardpositions.GameMode):
+        nnInput=boardpositions.getInput()
+    else:
+        nnInput=np.ones(780,dtype=np.int64)
+    boardpositions.reverseMove(move, captPiece, castlingBeforeMove, enPassantBeforeMove, isPlayerInCheckBeforeMove)
+    if(debug): quickPrint(boardpositions,"reset")
     return willPlayerBeInCheck,nnInput
 
 @njit(cache=True)
-def moveProbs(boardpositions,net,nnInputList,debug):
+def sigmoid(z):
+    return 1.0/(1.0+np.exp(-z))
+
+@njit(cache=True)
+def relu(z):
+    #return np.maximum(z, 0)
+    return z*(z>0)
+
+@njit(cache=True)
+def moveProbs(boardpositions,Sizes,Weights,Biases,nnInputList,debug):
     lenInput=len(nnInputList)
-    if(lenInput<100):
-        print("ERROR: More than 100 moves available! Some moved are overlooked!")
+    if(lenInput>100):
+        print("ERROR: More than 100 moves available (lenInput)",lenInput,")! Some moves are overlooked!")
     nnInput=np.zeros((100,780),dtype=np.float64)
     for i,inArr in enumerate(nnInputList):
         nnInput[i]=inArr
-    if("SelfplayNetwork" in boardpositions.GameMode and boardpositions.CurrentPlayer==0):
-        probs=net.feedforward(nnInput[:lenInput])[0]
-        #print("probs=",probs)
-        moveProbabilities=probs.tolist()
-        if(debug): print("Probabilities to win:",moveProbabilities)
+    Num_layers=len(Sizes)
+    if("SelfplayNetwork" in boardpositions.GameMode and boardpositions.CurrentPlayer==1):
+        a=np.ascontiguousarray(nnInput[:lenInput].transpose())
+        for i,(b,w) in enumerate(zip(Biases, Weights)):
+            #print("a=",a)
+            #print("i=",i)
+            if i==Num_layers-2:
+                #print("sigmoid")
+                a = sigmoid(w@a + b)
+            else:
+                #print("relu")
+                a = relu(w@a + b)
+        moveProbabilities=a.reshape(-1)
+        if(debug):
+            print("Probabilities to win:",moveProbabilities)
     else:
-        moveProbabilities=[1.0 for i in range(lenInput)]
+        probs=np.ones((lenInput,1),dtype=np.float64)
+        moveProbabilities = probs.reshape(-1)
     return moveProbabilities
 
-def nextMove(net,boardpositions,colored=False,debug=False,noOutputMode=False):
-    #moveStartTime=timer()
-    print("test1")
+@njit
+def nextMove(boardpositions,Sizes,Weights,Biases,colored=False,debug=False,noOutputMode=False):
     gameMode=boardpositions.GameMode
-    print("test2")
     player=boardpositions.CurrentPlayer
-    print("test3")
     chessBoard=boardpositions.ChessBoard
-    print("test4")
     finished=False
-    print("test5")
     boardpositions.setIsPlayerInCheck()
-    print("test6")
     playerInCheck=boardpositions.IsPlayerInCheck
-    print("test7")
     if(playerInCheck==True and noOutputMode==False): print("Player",player,"is in CHECK!")
-    print("test8")
-    outOfCheckMoves,moveProbabilities=boardpositions.findAllowedMoves(net,debug,noOutputMode)
-    print("test9")
+    outOfCheckMoves,moveProbabilities=boardpositions.findAllowedMoves(Sizes,Weights,Biases,debug,noOutputMode)
     if(len(outOfCheckMoves)>0):
         if(len(outOfCheckMoves)<=8):
             #Check if only king is left and opponent can still win!
             if(noOutputMode==False): print("Less than 9 moves available! Check if game is decided.")
-            colorPlayer  =boardpositions.Players[boardpositions.CurrentPlayer]
-            colorOpponent=boardpositions.Players[boardpositions.CurrentOpponent]
-            Knight,Bishop,Rook,Queen,Pawn=colorOpponent+"n",colorOpponent+"b",colorOpponent+"r",colorOpponent+"q",colorOpponent+"p"
+            playerSign=boardpositions.CurrentPlayer
+            oppSign   =boardpositions.CurrentOpponent
             playerPieces,opponentPieces=[],[]
             for row in chessBoard:
                 for col in row:
-                    if colorPlayer in col:
-                        playerPieces.append(col)
-                    if colorOpponent in col:
-                        opponentPieces.append(col)
+                    if playerSign*col>0:
+                        playerPieces.append(getPieceName(playerSign*col))
+                    elif oppSign*col>0:
+                        opponentPieces.append(getPieceName(oppSign*col))
             if(noOutputMode==False): print("playerPieces=",playerPieces)
             if(len(playerPieces)==1):
                 if(noOutputMode==False): print("opponentPieces=",opponentPieces)
                 if(len(opponentPieces)>2 or
-                   len(opponentPieces)>1 and (Rook in opponentPieces or Queen in opponentPieces)):# or Pawn in opponentPieces)):
+                   len(opponentPieces)>1 and ("rook" in opponentPieces or "queen" in opponentPieces)):# or Pawn in opponentPieces)):
                     for rand,move in enumerate(outOfCheckMoves):
-                        if move[4]!="":
+                        if move[6]!=0:
                             moveInfoList,captPiece=boardpositions.playMove(move, True, debug, noOutputMode)
-                            if(noOutputMode==False): printChessBoard(chessBoard,player,rand,-1.0,colored,moveInfoList,debug)
+                            if(noOutputMode==False): printChessBoard(chessBoard,player,rand,-1,moveInfoList,colored)#moveInfoList,debug)
                             return False
                     boardpositions.setWinner(boardpositions.CurrentOpponent)
                     return True
-                elif(len(opponentPieces)==2 and (Bishop in opponentPieces or Knight in opponentPieces)):
-                    boardpositions.setWinner(0.5)
+                elif(len(opponentPieces)==2 and ("bishop" in opponentPieces or "night" in opponentPieces)):
+                    boardpositions.setWinner(0)
                     return True
         maxNum=len(outOfCheckMoves)
         s = np.sum(moveProbabilities)
-        probNormed = [float(i)/s for i in moveProbabilities]
-        prob_rounded = [round(num, 3) for num in moveProbabilities]
-        #probNormed = moveProbabilities/np.sum(moveProbabilities)
-        #prob_rounded = np.round(moveProbabilities,3)
-        if(gameMode=="WhiteVsBlack" or (gameMode=="WhiteVsComputer" and player==0) or (gameMode=="BlackVsComputer" and player==1)):
-            while True:
-                try:
-                    rand= int(input("Input your move:"))
-                    if rand>=maxNum:
-                        print("Your integer is too large. Choose between 0 and",maxNum-1)
-                        continue
-                    else:
-                        break
-                except ValueError:
-                    print("Not an integer!")  
-                    continue
-            print("Choose move ID",rand)
+        probNormed = moveProbabilities/s
+        helper=np.empty_like(moveProbabilities)
+        np.round(moveProbabilities*1000,3,helper)
+        prob_rounded=helper.astype(np.int32)
+        if(  gameMode=="SelfplayRandomVsRandom" or (gameMode=="SelfplayNetworkVsRandom" and player==-1)):
+            rand=random.randint(0,maxNum-1)
+            if(noOutputMode==False):
+                print("Random mover is moving now!")
+                print("maxNum,rand=",maxNum,rand)
             move=outOfCheckMoves[rand]
-        else:
-            if(  gameMode=="SelfplayRandomVsRandom" or (gameMode=="SelfplayNetworkVsRandom" and player==1)):
-                if(noOutputMode==False): print("Random mover is moving now!")
-                rand=random.randint(0,maxNum-1)
-                move=outOfCheckMoves[rand]
-            elif(gameMode=="SelfplayNetworkVsNetwork" or (gameMode=="SelfplayNetworkVsRandom" and player==0)):
-                if(noOutputMode==False): print("Neural network is moving now!")
-                #np.random.choice(np.arange(maxNum), p=probNormed)
-                #rand=random.randint(0,maxNum-1)
-                rand=np.argmax(moveProbabilities)
-                move=outOfCheckMoves[rand]
-            else:
-                rand=random.randint(0,maxNum)
-                move=outOfCheckMoves[rand]
-            if(debug): print("(functions (nextMove)): rand=",rand)
+        elif(gameMode=="SelfplayNetworkVsNetwork" or (gameMode=="SelfplayNetworkVsRandom" and player==1)):
+            if(noOutputMode==False): print("Neural network is moving now!")
+            #np.random.choice(np.arange(maxNum), p=probNormed)
+            #rand=random.randint(0,maxNum-1)
+            rand=np.argmax(moveProbabilities)
+            move=outOfCheckMoves[rand]
+        #else:
+        #    rand=random.randint(0,maxNum)
+        #    move=outOfCheckMoves[rand]
+        if(debug): print("(functions (nextMove)): rand=",rand)
         if noOutputMode==False:printMoves(player,outOfCheckMoves,colored,prob_rounded,debug)
         moveInfoList,captPiece=boardpositions.playMove(move, True, debug, noOutputMode)
         if(noOutputMode==False):
-            printChessBoard(chessBoard,player,rand,prob_rounded[rand],colored,moveInfoList,debug)
+            printChessBoard(chessBoard,player,rand,prob_rounded[rand],moveInfoList,colored)#moveInfoList,debug)
     elif(len(outOfCheckMoves)==0 and playerInCheck==True):
         if(noOutputMode==False): print("Player",player,"is CHECKMATE!")
         boardpositions.setWinner(boardpositions.CurrentOpponent)
@@ -273,58 +298,50 @@ def nextMove(net,boardpositions,colored=False,debug=False,noOutputMode=False):
         if(noOutputMode==False): print("Player",player,"has no more moves available => Remis.")
         boardpositions.setWinner(0.5)
         finished=True
-    #print("time nextMove=",timer()-moveStartTime)
     return finished
 
 @njit(cache=True)
-def printChessBoard(chessBoard, player, rand, prob, colored=False, moveInfoList=[], debug=False):
-    if(debug): print("moveInfoList=",moveInfoList)
-    if(len(moveInfoList)>3): print("ERROR: len(moveInfoList)=",len(moveInfoList),"shouldn't be larger than 3!")
+def printChessBoard(chessBoard, player, rand, prob, moveInfoList=[], colored=False):#moveInfoList=[], debug=False):
     print("###### Board- ######")
     print("## A B C D E F G H #")
     bkgColor="49"
     for j in range(len(chessBoard)):
-        print(8-j,end=' ')
-        if(  player==0): colNum=7-j
-        elif(player==1): colNum=j
+        ChessBoardString=str(8-j)+" "
+        colNum=j
+        if player==1: colNum=7-j
         printColor=""
         for i in range(8):
             if colored:
                 if  ((8-j)%2==0 and i%2==0) or ((8-j)%2==1 and i%2==1): bkgColor="44"
                 elif((8-j)%2==0 and i%2==1) or ((8-j)%2==1 and i%2==0): bkgColor="46"
-                if   "B" in chessBoard[colNum][i]: printColor="\033[0;30;"+bkgColor+"m"
-                elif "W" in chessBoard[colNum][i]: printColor="\033[0;37;"+bkgColor+"m"
+                if   chessBoard[colNum][i]<0: printColor="\033[0;30;"+bkgColor+"m"
+                elif chessBoard[colNum][i]>0: printColor="\033[0;37;"+bkgColor+"m"
                 else: printColor="\033[1;37;"+bkgColor+"m"
-            pieceUnicode=functions.getPieceUnicode(chessBoard[colNum][i],colored)
-            print(printColor+pieceUnicode+" ",end='')
+            pieceUnicode=getPieceUnicode(chessBoard[colNum][i],colored)
+            ChessBoardString+=printColor+pieceUnicode+" "
         if(colored):
             if(j==2 and len(moveInfoList)>0):
-                print("\033[1;37;49m",8-j,"  ",moveInfoList[0],"(\033[1;32;49m"+str(rand)+"\033[1;37;49m,"+str(prob)+")")
+                ChessBoardString+="\033[1;37;49m "+str(8-j)+"  "+moveInfoList[0]+" (\033[1;32;49m"+str(rand)+","+str(prob)+")"
             elif(j==4 and len(moveInfoList)>1):
-                print("\033[1;37;49m",8-j,"  ",moveInfoList[1])
+                ChessBoardString+="\033[1;37;49m "+str(8-j)+"  "+moveInfoList[1]
             elif(j==6 and len(moveInfoList)>2):
-                print("\033[1;37;49m",8-j,"  ",moveInfoList[2])
+                ChessBoardString+="\033[1;37;49m "+str(8-j)+"  "+moveInfoList[2]
             else:
-                print("\033[1;37;49m",8-j)
+                ChessBoardString+="\033[1;37;49m "+str(8-j)
         else:
             if(j==2 and len(moveInfoList)>0):
-                print(8-j,"  ",moveInfoList[0],"("+str(rand)+","+str(prob)+")")
+                ChessBoardString+=" "+str(8-j)+"  "+moveInfoList[0]+" ("+str(rand)+","+str(prob)+")"
             elif(j==4 and len(moveInfoList)>1):
-                print(8-j,"  ",moveInfoList[1])
+                ChessBoardString+=" "+str(8-j)+"  "+moveInfoList[1]
             elif(j==4 and len(moveInfoList)>2):
-                print(8-j,"  ",moveInfoList[2])
+                ChessBoardString+=" "+str(8-j)+"  "+moveInfoList[2]
             else:
-                print(8-j)
+                ChessBoardString+=" "+str(8-j)
+        print(ChessBoardString)
     print("# A B C D E F G H ##")
     print("###### -Board ######")
 
-@njit(cache=True)#[types.ListType(types.ListType(types.Array(int64, 1, 'C')))(types.ListType(types.ListType(types.unicode_type)),types.unicode_type)],cache=True)
-#     locals={'pPos': types.ListType(types.Array(int64, 1, 'C')),
-#             'nPos': types.ListType(types.int64[:]),
-#             'bPos': types.ListType(types.int64[:]),
-#             'rPos': types.ListType(types.int64[:]),
-#             'qPos': types.ListType(types.int64[:]),
-#             'kPos': types.ListType(types.int64[:])})
+@njit(cache=True)
 def getPositions(chessBoard,playerSign):
     pPos=typed.List()
     nPos=typed.List()
@@ -340,4 +357,4 @@ def getPositions(chessBoard,playerSign):
             elif chessBoard[row][col]==playerSign*3: rPos.append( np.array([col,row], dtype=np.int64) )
             elif chessBoard[row][col]==playerSign*2: qPos.append( np.array([col,row], dtype=np.int64) )
             elif chessBoard[row][col]==playerSign*1: kPos.append( np.array([col,row], dtype=np.int64) )
-    return typed.List((pPos,nPos,bPos,rPos,qPos,kPos))
+    return typed.List((kPos,qPos,rPos,bPos,nPos,pPos))
