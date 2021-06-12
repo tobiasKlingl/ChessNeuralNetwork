@@ -10,8 +10,8 @@ import random
 import sys
 import numba as nb
 
-Debug=False#True
-NoOutput=True
+Debug=True
+NoOutput=False#True
 PrintMergeInfo=True
 Col=False
 
@@ -34,7 +34,7 @@ try:
 except:
     nGames=100
     StopGameNumber=500
-    upToPly=200
+    upToPly=500
     checkForDoubles=5
     jobNum="1"
     iteration=1

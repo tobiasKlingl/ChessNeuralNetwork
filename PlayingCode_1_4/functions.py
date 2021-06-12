@@ -290,6 +290,8 @@ def nextMove(boardpositions,Sizes,Weights,Biases,colored=False,debug=False,noOut
         moveInfoList,captPiece=boardpositions.playMove(move, True, debug, noOutputMode)
         if(noOutputMode==False):
             printChessBoard(chessBoard,player,rand,prob_rounded[rand],moveInfoList,colored)#moveInfoList,debug)
+            print("boardpositions.Castling=",boardpositions.Castling)
+            print("boardpositions.EnPassant=",boardpositions.EnPassant)
     elif(len(outOfCheckMoves)==0 and playerInCheck==True):
         if(noOutputMode==False): print("Player",player,"is CHECKMATE!")
         boardpositions.setWinner(boardpositions.CurrentOpponent)

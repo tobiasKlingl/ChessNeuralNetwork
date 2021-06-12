@@ -312,6 +312,16 @@ class BoardPositions(object):
                     if(noOutputMode==False and writeMoveInfoList==True):
                         print("INFO: Player",player,"is no longer allowed to castle short.")
                 self.Castling[0][1]=0
+        if(  self.Castling[1][0]==1 and capturedPiece==3 and newPos==[0,7]):
+            self.Castling[1][0]=0
+            if noOutputMode==False:
+                print("INFO: Captured Player",opponent,"'s rook! Player",opponent,"is no longer allowed to castle long.")
+                print("self.Castling=",self.Castling)
+        elif(self.Castling[1][1]==1 and capturedPiece==3 and newPos==[7,7]):
+            self.Castling[1][1]=0
+            if noOutputMode==False:
+                print("INFO: Captured Player",opponent,"'s rook! Player",opponent,"is no longer allowed to castle short.")
+                print("self.Castling=",self.Castling)
         if(piece==6 and oldPos[1]==1 and newPos[1]==3 and (self.ChessBoard[newPos[1]][newPos[0]-1]==opponent*6 or self.ChessBoard[newPos[1]][newPos[0]+1]==opponent*6)):
             self.EnPassant=newPos[0]
         else:
