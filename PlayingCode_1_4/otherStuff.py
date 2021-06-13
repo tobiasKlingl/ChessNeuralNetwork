@@ -3,7 +3,7 @@ import random
 
 def mergeStuff(i,j,ID,winner,counter,mergedWinner,mergedCounter,mergeInfo):
     if(mergeInfo):
-        print("=> This position (",ID,") has been played",mergedCounter,"times before (position",str(j)+").")
+        print("=> Position (",ID,") has been played",mergedCounter,"times before (position",str(j)+").")
         print("=> winners["+str(i)+"]=",winner,", mergedWinners[" +str(j)+"]=",mergedWinner,", mergedCounter["+str(j)+"]=",mergedCounter)
     mergedWinner=(winner*counter+mergedWinner*mergedCounter)/(counter+mergedCounter)
     mergedCounter+=counter
@@ -23,17 +23,17 @@ def update_data(i,data,gamePos,gameOutput,gameID,gameCounter,mergeInfo):
                     alreadyIncluded=True
                     break
             if alreadyIncluded==False:
-                if(mergeInfo): print("INFO: Insert new (counted) position (",gameID,") at position",str(lenAllCounter)+". Output["+str(lenAllCounter)+"]=",gameOutput)
+                if(mergeInfo): print("Insert new ID ",gameID," at position",str(lenAllCounter)+". Output["+str(lenAllCounter)+"]=",gameOutput,"; Counter["+str(lenAllCounter)+"]=",gameCounter)
                 allPos.insert(    lenAllCounter,gamePos    )
                 allOutput.insert( lenAllCounter,gameOutput )
                 allIDs.insert(    lenAllCounter,gameID     )
                 allCounter.insert(lenAllCounter,gameCounter)
         else:
-            if(mergeInfo): print("INFO: Appending new (non-counted) position (",gameID,") at position",str(len(allPos))+". Output["+str(len(allOutput))+"]=",gameOutput)
+            if(mergeInfo): print("Append new position at position",str(len(allPos))+". Output["+str(len(allOutput))+"]=",gameOutput)
             allPos.append(gamePos)
             allOutput.append(gameOutput)
     else:
-        if(mergeInfo): print("INFO: Adding first position (",gameID,") at position",str(lenAllCounter)+". Output=",gameOutput)
+        if(mergeInfo): print("INFO: Add first ID",gameID,"at position",str(lenAllCounter)+". Output=",gameOutput)
         allPos.append(gamePos)
         allOutput.append(gameOutput)
         allIDs.append(gameID)

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-nGames=500         #number of games to play from each position
-StopGameNumber=999 #run each game until this ply
-upToPly=500        #run code until this ply
+nGames=100         #number of games to play from each position
+StopGameNumber=499 #run each game until this ply
+upToPly=50         #run code until this ply
 checkForDoubles=5  #check if position has been played up this ply
 numJobs=4          #number of jobs
 #simul=4           #number of parallel jobs
@@ -18,4 +18,4 @@ done
 
 wait
 echo "Done waiting! Now merge the files."
-python mergeTrainFiles.py ${numJobs} ${iteration} ${mergeInfo}
+python mergeTrainFiles.py ${iteration} ${mergeInfo}

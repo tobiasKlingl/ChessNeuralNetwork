@@ -10,7 +10,7 @@ import random
 import sys
 import numba as nb
 
-Debug=True
+Debug=False#True
 NoOutput=False#True
 PrintMergeInfo=True
 Col=False
@@ -92,15 +92,15 @@ def play(idxString,Sizes,Weights,Biases,boardState,debug,noOutput,col):
     if(winner==initialPlayer):
         won=1.
         #if noOutput==False:
-        print(textColor+idxString+": Player",winner,"won this game!!! in",boardState.PlyNumber,"plys.",resetColor)
+        print(textColor+idxString+": Player",winner,"won in",boardState.PlyNumber,"plys!",resetColor)
     elif(winner==initialOpponent):
         won=0.
         #if noOutput==False:
-        print(textColor+idxString+": Player",winner,"won this game!!! in",boardState.PlyNumber,"plys.",resetColor)
+        print(textColor+idxString+": Player",winner,"won in",boardState.PlyNumber,"plys!",resetColor)
     elif(winner==0):
         won=0.5
         #if noOutput==False:
-        print(textColor+idxString+": Game ended remis!!!",resetColor)
+        print(textColor+idxString+": Game ended remis!",resetColor)
     else:
         won=-9.
         print(idxString+": ERROR: Unknown value for winner! winner=",winner)
@@ -124,13 +124,13 @@ def playTheGames(startPly,Sizes,Weights,Biases,boardpositions,deb,noOut,mergeInf
                     alreadyIncluded=True
                     break
             if(alreadyIncluded==False):
-                if(mergeInfo): print(idxString+": INFO: Insert new (counted) position from game",idx,"("+gameID+") at position",str(lenCounters)+". gameWinners["+str(lenCounters)+"]=",gameWinner)
+                if(mergeInfo): print(idxString+": Insert new ID at position",str(lenCounters)+". gameWinners["+str(lenCounters)+"]=",gameWinner)
                 gamePositions.insert(  lenCounters,gamePos)
                 gameWinners.insert(    lenCounters,gameWinner)
                 gameCounters.insert(   lenCounters,1)
                 gamePositionIDs.insert(lenCounters,gameID)
         else:
-            if(mergeInfo): print(idxString+": INFO: Appending new (non-counted) position from game",idx,"("+gameID+") at position",str(len(gameWinners))+". gameWinners["+str(len(gameWinners))+"]=",gameWinner)
+            if(mergeInfo): print(idxString+": Append new ID. gameWinners["+str(len(gameWinners))+"]=",gameWinner)
             gamePositions.append(gamePos)
             gameWinners.append(gameWinner)
             gameCounters.append(1)
@@ -155,7 +155,7 @@ def runSelfPlay(boardpositions,it,jobNum,startPly,nGames,Sizes,Weights,Biases,de
             bp.GameMode=gameMode
             bp.initializeBoard(i,c,deb,noOut)
     gamePositions,gamePositionIDs,gameWinners,gameCounters,exitState=playTheGames(startPly,Sizes,Weights,Biases,boardpositions,deb,noOut,mergeInfo,c)
-    print("\nAll games of startPly=",startPly,"(jobNum="+jobNum+") are finished! Write the data to file.\n")
+    print("\nAll games starting at ply",startPly,"(jobNum="+jobNum+") are finished! Write the data to file.\n")
     
     #Update gameDataFile
     if os.path.exists(gameDataFile):
@@ -193,7 +193,7 @@ def runSelfPlay(boardpositions,it,jobNum,startPly,nGames,Sizes,Weights,Biases,de
         print("Writing ID=",ID,"with maxVal=",maxVal,"to file.")
         posToWrite.append(maxPosition)
     writeBestPosToFile(posToWrite,bestPosFile)
-    print("INFO: len(gamePositions/Winners/positionIDs/Counters)=",len(merged_data[0]),"/",len(merged_data[1]),"/",len(merged_data[2]),"/",len(merged_data[3]))
+    print("INFO: len(gamePositions/Winners/IDs/Counters)=",len(merged_data[0]),"/",len(merged_data[1]),"/",len(merged_data[2]),"/",len(merged_data[3]))
     return exitState
         
 ### Start the code        
