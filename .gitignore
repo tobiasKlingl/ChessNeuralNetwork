@@ -11,3 +11,4 @@ PlayingCode*/logs/*
 PlayingCode*/__pycache__/
 
 NetworkCode/__pycache__/
+NetworkCode/saves/*
