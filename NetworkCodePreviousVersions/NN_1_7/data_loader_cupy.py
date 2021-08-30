@@ -13,7 +13,7 @@ import cupy as cp   #if cupy is not available change this to "import numpy as cp
 #import numpy as cp 
 
 def load_data(trainingsData):
-    datadir="../PlayingCode_1_5/data/"
+    datadir="../PlayingCode_1_4/data/"
     input=datadir+trainingsData
     print("Reading in file:",input)
     datalist=glob.glob(input)
