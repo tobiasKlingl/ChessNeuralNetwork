@@ -1,40 +1,37 @@
-import Board
-import game
-from moves import MoveDictionary
-from functions import printInfo, printDebug, printError
+import os
 import numba as nb
 from numba.experimental import jitclass
+
+import Board
+import game
+from moves import getMoveDict
+from functions import printInfo, printDebug, printError
+
+#os.environ['NUMBA_DISABLE_JIT'] = '1'
 
 noOutputMode = False
 coloredOutput = False
 
 
-moveDict = MoveDictionary()
-mL = moveDict.MoveList
-mD = moveDict.MoveDict
-
-"""
-print("mL =",mL)
-print("mL =",len(mL))
-print("")
-print("mD =",mD)
-"""
+mD = getMoveDict()
+#print("mD =", mD)
 
 def play(gameNumber):
     # initialize BoardManager
-    chessBoard = Board.ChessBoard(noOutputMode, coloredOutput)
-    boardManager=Board.BoardManager(chessBoard, mD, noOutputMode, coloredOutput)
+    chessBoard =  Board.ChessBoard(noOutputMode,  coloredOutput)
+    pieceBoards = Board.PieceBoards(noOutputMode)
+    boardManager = Board.BoardManager(chessBoard, pieceBoards, mD, noOutputMode, coloredOutput)
     boardManager.initializePieceBoards()
     boardManager.setPieces()
 
-    initialPlyNumber = boardManager.PlyNumber
+    gameManager = game.GameManager(boardManager, noOutputMode, coloredOutput)
+    finishedInOne = 0
+
+    initialPlyNumber = gameManager.PlyNumber
     initialPlayer =    boardManager.CurrentPlayer
     initialOpponent =  boardManager.CurrentOpponent
 
     printInfo(noOutputMode, "initialPlyNumber, initialPlayer, initialOpponent =", str(initialPlyNumber), initialPlayer, initialOpponent)
-
-    gameManager = game.GameManager(boardManager, noOutputMode, coloredOutput)
-    finishedInOne = 0
 
     while(gameManager.Finished == False):
         currentPlayer = gameManager.BoardManager.CurrentPlayer

@@ -120,6 +120,7 @@ MoveInformationSpecs = [
     ('PiecePos',         nb.types.Array(nb.types.int64, 1, 'C')), #nb.types.ListType(nb.int64)),
     ('NewPos',           nb.types.Array(nb.types.int64, 1, 'C')), #nb.types.ListType(nb.int64)),
     ('__MoveID',         nb.int64),
+    ('MoveEvaluation',   nb.float64),
     ('CapturedPieceNum', nb.int64),
     ('IsCastlingLong',   nb.boolean),
     ('IsCastlingShort',  nb.boolean),
@@ -136,6 +137,7 @@ class MoveInformation(object):
         self.PiecePos =         piecePos
         self.NewPos =           newPos
         self.__MoveID =         -1
+        self.MoveEvaluation =  1.0
         self.CapturedPieceNum = capturedPieceNum #0 == no piece captured
         self.IsCastlingLong =   False
         self.IsCastlingShort =  False
@@ -322,72 +324,44 @@ class MoveManager(object):
         return enPassantMoves
 
 
-############################################################################################################################
-#### NON-jited MoveDictionary class ########################################################################################
-############################################################################################################################
-                    
-"""
-Create the Move dictionary holding all different possible moves in chess (not considering the type of piece that made the move)
-"""
-SpecsMoveDictionary = [
-    ('MoveDict', nb.types.DictType(nb.types.string, nb.int64)),
-    ('MoveList', nb.types.ListType(nb.types.string)),
-    ('MoveID'  , nb.int64),
-]
-@jitclass(SpecsMoveDictionary)
-class MoveDictionary(object):
-    
-    def __init__(self) -> None:
-        self.MoveDict = nb.typed.Dict.empty(nb.types.string, nb.int64)
-        self.MoveList = nb.typed.List(("14020", "14060")) #castling short, castling long
-        self.MoveID = 0
-        self.initializeMoveDict()
+@nb.njit(cache = True)
+def appendToList(moveDict, piece, piecePos, deltas, moveID):
+    for delta in deltas: 
+        for i in range(1, 8):
+            delt = delta * i
+            newPos = piecePos + delt
+            if(newPos[0] < 0 or newPos[0] > 7 or newPos[1] < 0 or newPos[1] > 7): #Out of bounds
+                break
+            elif(piece == "pawn"):
+                if(piecePos[1] == 6 and newPos[1] == 7): #Pawn promotions
+                    for newPieceNumber in range(2, 6):   #Loop over possible promotions: knight(5), bishop(4), rook(3), queen(2)
+                        moveString = "".join([str(newPieceNumber), str(piecePos[0]), str(piecePos[1]), str(newPos[0]), str(newPos[1])])
+                        moveDict[moveString] = moveID
+                        moveID += 1 
+            else:
+                moveString = "".join(["0", str(piecePos[0]), str(piecePos[1]), str(newPos[0]), str(newPos[1])])
+                moveDict[moveString] = moveID
+                moveID += 1 
+            if(piece == "pawn" or piece == "knight" or piece == "king"):
+                break
 
-        
-    def CPlusPlus(self) -> nb.int64: # C type "i++" function
-        self.MoveID += 1
-        return self.MoveID - 1
-
-    
-    def initializeMoveDict(self) -> None:
-        self.MoveDict["14020"] = self.CPlusPlus()  #castling short
-        self.MoveDict["14060"] = self.CPlusPlus()  #castling long
-
-        for col in range(8):
-            for row in range(8):
-                deltas = getBasicPieceMoves("queen", nb.typed.List((row,col)), False)
-                self.appendToList("queen", row, col, deltas)
-                deltas = getBasicPieceMoves("knight", nb.typed.List((row,col)), False)
-                self.appendToList("knight", row, col, deltas)
-                deltas = getBasicPieceMoves("pawn", nb.typed.List((row,col)), False)
-                self.appendToList("pawn", row, col, deltas)
-
-                
-    def appendToList(self, piece, row, col, deltas) -> None: # moveList nicht unbedingt gebraucht, oder?
-        piecePos = np.array([row,col], dtype = np.int64)
-        for delta in deltas: 
-            for i in range(1, 8):
-                delt = nb.typed.List([d*i for d in delta])
-                newPos = [piecePos[0] + delt[0], piecePos[1] + delt[1]]
-                if(newPos[0] < 0 or newPos[0] > 7 or newPos[1] < 0 or newPos[1] > 7): #Out of bounds
-                    break
-                elif(piece == "pawn"):
-                    if(piecePos[1] == 6 and newPos[1] == 7): #Pawn promotions
-                        for newPieceNumber in range(2,6):    #Loop over possible promotions: knight(5), bishop(4), rook(3), queen(2)
-                            moveString = "".join([str(newPieceNumber), str(piecePos[0]), str(piecePos[1]), str(newPos[0]), str(newPos[1])])
-                            self.MoveList.append(moveString)
-                            self.MoveDict[moveString] = self.CPlusPlus()
-                else:
-                    #self.MoveList.append((0, piecePos[0], piecePos[1], newPos[0], newPos[1]))
-                    #self.MoveDict[(0, piecePos[0], piecePos[1], newPos[0], newPos[1])] = self.CPlusPlus()
-                    moveString = "".join(["0", str(piecePos[0]), str(piecePos[1]), str(newPos[0]), str(newPos[1])])
-                    self.MoveList.append(moveString)
-                    self.MoveDict[moveString] = self.CPlusPlus()
-                if(piece == "pawn" or piece == "knight" or piece == "king"):
-                    break
-                else:
-                    i += 1
+    return moveID
 
 
+@nb.njit(cache = True)
+def getMoveDict() -> nb.typed.Dict:
+    moveDict = nb.typed.Dict.empty(nb.types.string, nb.int64)
+    moveID = 0
+    moveDict["14020"] = moveID #castling short
+    moveID += 1
+    moveDict["14060"] = moveID #castling long
+    moveID += 1
 
-if __name__ == '__main__': main()
+    for col in range(8):
+        for row in range(8):
+            piecePos = np.array([row,col], dtype = np.int64)
+            for piece in ["queen", "knight", "pawn"]:
+                deltas = getBasicPieceMoves(piece, piecePos, False)
+                moveID = appendToList(moveDict, piece, piecePos, deltas, moveID)
+
+    return moveDict

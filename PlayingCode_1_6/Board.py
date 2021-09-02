@@ -7,6 +7,7 @@ import pickle
 import numba as nb
 from numba.experimental import jitclass
 
+
 ############################################################################################################################
 #### jited ChessBoard class ################################################################################################ 
 ############################################################################################################################
@@ -223,51 +224,77 @@ class ChessBoard(object):
         printInfo(self.NoOutputMode, "# A B C D E F G H ##\n###### -Board ######")
 
 
+    def printChessBoardWithInfo(self, moveID = -1, evaluation = 1, moveInfo = nb.typed.List(), arg = "Board-", colored = False):
+        lenChessBoard = len(self.Board)
+        printInfo(self.NoOutputMode, "######", arg, "######\n## A B C D E F G H #")
+
+        bkgColor = "49"
         
+        for row in range(lenChessBoard):
+            rowInfo = []
+
+            if not self.Reversed:
+                row = (lenChessBoard -1) - row
+
+            rowInfo.append(str(row + 1))            
+
+            for col in range(lenChessBoard):
+                if colored:
+                    if   ((8 - row)%2 == 0 and col%2 == 0) or ((8 - row)%2 == 1 and col%2 == 1): bkgColor = "44"
+                    elif ((8 - row)%2 == 0 and col%2 == 1) or ((8 - row)%2 == 1 and col%2 == 0): bkgColor = "46"
+                                                              
+                    if self.Board[row][col] < 0:   printColor = "\033[0;30;" + bkgColor + "m"
+                    elif self.Board[row][col] > 0: printColor = "\033[0;37;" + bkgColor + "m"
+                    else:                          printColor = "\033[1;37;" + bkgColor + "m"
+
+                pieceUnicode = fn.getPieceUnicode(self.Board[row][col], colored)
+                rowInfo.append(printColor + pieceUnicode)
+                
+            if colored:
+                if row == 6 and len(moveInfo) > 0:
+                    rowInfo.append(" ".join(["\033[1;37;49m", str(row + 1), moveInfo[0], "(\033[1;32;49m" + str(moveID) + "," + str(evaluation) + ")"]))
+                elif row == 4 and len(moveInfo) > 1:
+                    rowInfo.append(" ".join(["\033[1;37;49m", str(row + 1), moveInfo[1]]))
+                elif row == 2 and len(moveInfo) > 2:
+                    rowInfo.append(" ".join(["\033[1;37;49m", str(row + 1), moveInfo[2]]))
+                else:
+                    rowInfo.append(" ".join(["\033[1;37;49m", str(row + 1)]))
+            else:
+                if row == 6 and len(moveInfo) > 0:
+                    rowInfo.append(" ".join(["", str(row + 1), moveInfo[0], "(" + str(moveID) + "," + str(evaluation) + ")"]))
+                elif row == 4 and len(moveInfo) > 1:
+                    rowInfo.append(" ".join(["", str(row + 1), moveInfo[1]]))
+                elif row == 4 and len(moveInfo) > 2:
+                    rowInfo.append(" ".join(["", str(row + 1), moveInfo[2]]))
+                else:
+                    rowInfo.append(" ".join(["", str(row + 1)]))
+
+            print(" ".join(rowInfo))
+
+        printInfo(self.NoOutputMode, "# A B C D E F G H ##\n###### -Board ######")
+
 
 ############################################################################################################################
-#### jited BoardManager class ############################################################################################## 
+#### jited PieceBoards class ############################################################################################### 
 ############################################################################################################################
 
-BoardManagerSpecs = [
-    ('ClassName',       nb.types.string),
-    ('ChessBoard',      ChessBoard.class_type.instance_type),
-    ('MoveDict',        nb.types.DictType(nb.types.string, nb.int64)),
-    ('PieceBoards',     nb.types.Array(nb.types.float64, 4, 'C')), #nb.int64[:,:,:,:]),
-    ('Players',         nb.types.DictType(nb.types.string, nb.types.int64)),
+PieceBoardsSpecs = [
+    ('ClassName',   nb.types.string),
+    ('PieceBoards', nb.types.Array(nb.types.float64, 4, 'C')), #nb.int64[:,:,:,:]),
     ('Pieces',          nb.types.DictType(nb.types.string, nb.types.int64)), #nb.types.ListType(nb.types.string)),
-    ('CurrentPlayer',   nb.types.string),
-    ('CurrentOpponent', nb.types.string),
-    ('PlyNumber',       nb.int64),
-    ('Finished',        nb.boolean),
     ('NoOutputMode',    nb.boolean),
-    ('ColoredOutput',   nb.boolean),
 ]
 
-@jitclass(BoardManagerSpecs)
-class BoardManager(object):
+@jitclass(PieceBoardsSpecs)
+class PieceBoards(object):
 
-    def __init__(self, chessBoard, moveDict, noOutputMode, coloredOutput) -> None:
-        self.ClassName =      "BoardManager"
-        self.PieceBoards =     np.zeros((2,6,8,8), dtype = np.float64)
-        self.ChessBoard =      chessBoard
-        self.MoveDict =        moveDict
-        self.fillPlayerDict()
+    def __init__(self, noOutputMode) -> None:
+        self.ClassName =    "PieceBoards"
+        self.PieceBoards =  np.zeros((2,6,8,8), dtype = np.float64)
         self.fillPieceDict()
-        self.CurrentPlayer =   "white"
-        self.CurrentOpponent = "black"
-        self.PlyNumber =       1
-        self.Finished =        False
-        self.NoOutputMode =    noOutputMode
-        self.ColoredOutput =   coloredOutput
+        self.NoOutputMode = noOutputMode
 
-        
-    def fillPlayerDict(self):
-        self.Players = nb.typed.Dict.empty(key_type = nb.types.string, value_type = nb.types.int64)
-        self.Players["white"] = 1
-        self.Players["black"] = -1
 
-        
     def fillPieceDict(self):
         self.Pieces = nb.typed.Dict.empty(key_type = nb.types.string, value_type = nb.types.int64)
         self.Pieces["king"]   = 1
@@ -275,7 +302,7 @@ class BoardManager(object):
         self.Pieces["rook"]   = 3
         self.Pieces["bishop"] = 4
         self.Pieces["knight"] = 5
-        self.Pieces["pawn"]   = 6
+        self.Pieces["pawn"]   = 6        
 
         
     def pawnInitializer(self) -> None:
@@ -306,31 +333,82 @@ class BoardManager(object):
     def kingInitializer(self) -> None:
         self.PieceBoards[0][0][0][4] = 1 #white
         self.PieceBoards[1][0][7][4] = 1 #black
-        self.ChessBoard.KingPositions = np.array([[4,0],[4,0]], dtype = np.int64)
-        self.ChessBoard.Castling = nb.typed.List([nb.typed.List([True, True]), nb.typed.List([True, True])]) # [[white long,white short],[black long, black short]] still allowed?
+
+        
+    def removePiecePieceBoards(self, player, piece, oldPos):
+        playerIdx = fn.getPlayerIndex(player)
+        pieceIdx = self.Pieces[piece] - 1
+        self.PieceBoards[playerIdx][pieceIdx][oldPos[1]][oldPos[0]] = 0
+
+        
+    def setPieces(self, player, piece, newPos):
+        playerIdx = fn.getPlayerIndex(player)
+        pieceIdx = self.Pieces[piece] - 1
+        self.PieceBoards[playerIdx][pieceIdx][newPos[1]][newPos[0]] = 1
+        
+
+############################################################################################################################
+#### jited BoardManager class ############################################################################################## 
+############################################################################################################################
+
+BoardManagerSpecs = [
+    ('ClassName',       nb.types.string),
+    ('ChessBoard',      ChessBoard.class_type.instance_type),
+    ('PieceBoards',     PieceBoards.class_type.instance_type),
+    ('MoveDict',        nb.types.DictType(nb.types.string, nb.int64)),
+    ('Players',         nb.types.DictType(nb.types.string, nb.types.int64)),
+    ('CurrentPlayer',   nb.types.string),
+    ('CurrentOpponent', nb.types.string),
+    ('NoOutputMode',    nb.boolean),
+    ('ColoredOutput',   nb.boolean),
+]
+
+@jitclass(BoardManagerSpecs)
+class BoardManager(object):
+
+    def __init__(self, chessBoard, pieceBoards, moveDict, noOutputMode, coloredOutput) -> None:
+        self.ClassName =      "BoardManager"
+        self.ChessBoard =      chessBoard
+        self.PieceBoards =     pieceBoards
+        self.MoveDict =        moveDict
+        self.fillPlayerDict()
+        self.CurrentPlayer =   "white"
+        self.CurrentOpponent = "black"
+        self.NoOutputMode =    noOutputMode
+        self.ColoredOutput =   coloredOutput
+
+        
+    def fillPlayerDict(self):
+        self.Players = nb.typed.Dict.empty(key_type = nb.types.string, value_type = nb.types.int64)
+        self.Players["white"] = 1
+        self.Players["black"] = -1
 
         
     def initializePieceBoards(self) -> None:
-        self.pawnInitializer()
-        self.knightInitializer()
-        self.bishopInitializer()
-        self.rookInitializer()
-        self.queenInitializer()
-        self.kingInitializer()
+        self.PieceBoards.pawnInitializer()
+        self.PieceBoards.knightInitializer()
+        self.PieceBoards.bishopInitializer()
+        self.PieceBoards.rookInitializer()
+        self.PieceBoards.queenInitializer()
+        self.PieceBoards.kingInitializer()
+
+        self.ChessBoard.KingPositions = np.array([[4,0],[4,0]], dtype = np.int64)
+        self.ChessBoard.Castling = nb.typed.List([nb.typed.List([True, True]), nb.typed.List([True, True])]) # [[white long,white short],[black long, black short]] still allowed?
+
         if __debug__:
             printDebug("All PieceBoards initialized:", fName = "initializePieceBoards", cName = self.ClassName)
-            print(self.PieceBoards)
+            print(self.PieceBoards.PieceBoards)
 
             
     def setPieces(self) -> None:
         lenChessBoard = len(self.ChessBoard.Board)
         for playerIdx, player in enumerate(self.Players):
             playerSign = self.Players[player]
-            for pieceIdx, piece in enumerate(self.Pieces):
+            for pieceIdx, piece in enumerate(self.PieceBoards.Pieces):
                 #printInfo(self.NoOutputMode, "X", str(pieceIdx), str(piece))
                 for row in range(lenChessBoard):
                     for col in range(lenChessBoard):
-                        if(self.PieceBoards[playerIdx][pieceIdx][row][col] == 1):
+                        if(self.PieceBoards.PieceBoards[playerIdx][pieceIdx][row][col] == 1):
                             self.ChessBoard.Board[row][col] = playerSign*(pieceIdx+1)
                             if piece == "king":
                                 if player == self.CurrentPlayer:
@@ -351,7 +429,7 @@ class BoardManager(object):
         normalMoves = nb.typed.List()
         onlyCaptureMoves = False
 
-        for pieceIdx, piece in enumerate(self.Pieces):
+        for pieceIdx, piece in enumerate(self.PieceBoards.Pieces):
             if __debug__:
                 printDebug(" ".join(["Current piece =", piece + "; ownPositions:"]), fName = "getNormalMoves", cName = self.ClassName)
                 print(ownPositions[pieceIdx])
@@ -435,16 +513,14 @@ class BoardManager(object):
                 allMovesList.append(move)
 
         if len(allMovesList) > 0:
-            moveProbabilites = fn.moveProbs(self, allMovesList)
-        else:
-            moveProbabilities = np.ones((1,1), dtype = np.float64)
+            fn.moveProbs(allMovesList)
 
-        return allMovesList, moveProbabilites
+        return allMovesList
+    
 
-
-    def playMove(self, move, writeMoveInfoList = False) -> (nb.typed.List(), nb.int64):
+    def playMove(self, move, writeMoveInfoList = False) -> nb.typed.List():
         returnStringList = nb.typed.List()
-
+        
         items = [move.IsCastlingLong, move.IsCastlingShort, move.IsEnpassantMove, move.IsPromotionMove]
         
         if items.count(True) > 1:
@@ -477,7 +553,7 @@ class BoardManager(object):
                 if writeMoveInfoList:
                     returnStringList.append(" ".join(["Player", self.CurrentPlayer, "captured", fn.getPieceName(move.CapturedPieceNum), "at", newPosReadable]))
 
-                for pieceOpp in self.Pieces:
+                for pieceOpp in self.PieceBoards.Pieces:
                     self.removePiece(self.CurrentOpponent, pieceOpp, move.NewPos)
                     
 
@@ -527,7 +603,7 @@ class BoardManager(object):
                 self.ChessBoard.Castling[0][0] = False
             elif move.Piece == "rook" and (move.PiecePos == np.array([7,0])).all():
                 if self.ChessBoard.Castling[0][1] == True:
-                    printInfo(self.NoOutputMode, "Player", self.Currentplayer, "is no longer allowed to castle short")
+                    printInfo(self.NoOutputMode, "Player", self.CurrentPlayer, "is no longer allowed to castle short")
                 self.ChessBoard.Castling[0][1] = False
 
         ##################################
@@ -550,7 +626,7 @@ class BoardManager(object):
             self.ChessBoard.EnPassant = move.NewPos[0]
         else:
             self.ChessBoard.EnPassant = -99
-        return returnStringList, move.CapturedPieceNum
+        return returnStringList
 
 
     def reverseMove(self, move, castlingBeforeMove, enPassantBeforeMove, isPlayerInCheckBeforeMove):
@@ -577,29 +653,17 @@ class BoardManager(object):
 
     
     def removePiece(self, player, piece, oldPos):
-        self.removePiecePieceBoards(player, piece, oldPos)
+        self.PieceBoards.removePiecePieceBoards(player, piece, oldPos)
         self.ChessBoard.removePieceChessBoard(oldPos)
 
         
     def setPiece(self, player, piece, newPos):
-        self.setPiecePieceBoards(player, piece, newPos)
+        self.PieceBoards.setPieces(player, piece, newPos)
         self.ChessBoard.setPieceChessBoard(player, piece, newPos)
         if(piece == "king"):
             self.ChessBoard.KingPositions[0] = newPos
 
-
-    def removePiecePieceBoards(self, player, piece, oldPos):
-        playerIdx = fn.getPlayerIndex(player)
-        pieceIdx = self.Pieces[piece] - 1
-        self.PieceBoards[playerIdx][pieceIdx][oldPos[1]][oldPos[0]] = 0
-
         
-    def setPiecePieceBoards(self, player, piece, newPos):
-        playerIdx = fn.getPlayerIndex(player)
-        pieceIdx = self.Pieces[piece] - 1
-        self.PieceBoards[playerIdx][pieceIdx][newPos[1]][newPos[0]] = 1
-
-
     def setPositionFromFile(self, posFile) -> None:
         fileIn = open(posFile,"rb")
         self = pickle.load(fileIn)

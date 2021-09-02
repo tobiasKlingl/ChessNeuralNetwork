@@ -106,13 +106,23 @@ def getOpponent(player) -> types.string:
 
 
 @njit(cache = True)
-def rand_choice_nb(arr, prob):
+def rand_choice_nb(arr, moves):
     """
-    :param arr: A 1D numpy array of values to sample from.
+    :param moves: A 1D numpy array of values to sample from.
     :param prob: A 1D numpy array of probabilities for the given samples.
     :return: A random sample from the given array with a given probability.
     """
-    return arr[np.searchsorted(np.cumsum(prob), np.random.random(), side = "right")]
+    nMoves = len(moves)
+
+    moveEvaluations = np.ones(nMoves, dtype=np.float64)
+    for i, move in enumerate(moves):
+        moveEvaluations[i] = move.MoveEvaluation
+    
+    s = np.sum(moveEvaluations)
+    probNormed = moveEvaluations/s
+        
+    #return 1
+    return arr[np.searchsorted(np.cumsum(probNormed), np.random.random(), side = "right")]
 
 
 @njit(cache = True)
@@ -230,9 +240,9 @@ def createPieceListforPrintOut(readableMoveList,prob,colored=False,debug=False):
     SortedList.append(pawnMoves)
     return SortedList
 
-@njit(cache=True)
-def printMoves(player,moveList,colored,probNormed,debug=False):
-    readableMoveList=typed.List()
+@njit(cache = True)
+def printMoves(player, moveList, colored, probNormed, debug=False):
+    readableMoveList = typed.List()
     if(debug): print("moveList=",moveList)
     for i,move in enumerate(moveList):
         piece=move[0]
@@ -287,7 +297,7 @@ def relu(z):
     return z * (z>0)
 
 @njit(cache = True)
-def moveProbs(boardpositions, allMoves):
+def moveProbs(allMoves):
     numMoves = len(allMoves)
     """
     Num_layers = len(Sizes)
@@ -310,50 +320,9 @@ def moveProbs(boardpositions, allMoves):
             moveProbs[i]=allMoveProbabilities[move[10]]
     else:
     """
-    moveProbs = np.ones(numMoves, dtype = np.float64)
-    return moveProbs
-
-
-@njit(cache=True)
-def printChessBoard(chessBoard, player, moveID, prob, moveInfoList=[], colored=False):#moveInfoList=[], debug=False):
-    print("###### Board- ######")
-    print("## A B C D E F G H #")
-    bkgColor="49"
-    for j in range(len(chessBoard)):
-        ChessBoardString=str(8-j)+" "
-        colNum=j
-        if player==1: colNum=7-j
-        printColor=""
-        for i in range(8):
-            if colored:
-                if  ((8-j)%2==0 and i%2==0) or ((8-j)%2==1 and i%2==1): bkgColor="44"
-                elif((8-j)%2==0 and i%2==1) or ((8-j)%2==1 and i%2==0): bkgColor="46"
-                if   chessBoard[colNum][i]<0: printColor="\033[0;30;"+bkgColor+"m"
-                elif chessBoard[colNum][i]>0: printColor="\033[0;37;"+bkgColor+"m"
-                else: printColor="\033[1;37;"+bkgColor+"m"
-            pieceUnicode=getPieceUnicode(chessBoard[colNum][i],colored)
-            ChessBoardString+=printColor+pieceUnicode+" "
-        if(colored):
-            if(j==2 and len(moveInfoList)>0):
-                ChessBoardString+="\033[1;37;49m "+str(8-j)+"  "+moveInfoList[0]+" (\033[1;32;49m"+str(moveID)+","+str(prob)+")"
-            elif(j==4 and len(moveInfoList)>1):
-                ChessBoardString+="\033[1;37;49m "+str(8-j)+"  "+moveInfoList[1]
-            elif(j==6 and len(moveInfoList)>2):
-                ChessBoardString+="\033[1;37;49m "+str(8-j)+"  "+moveInfoList[2]
-            else:
-                ChessBoardString+="\033[1;37;49m "+str(8-j)
-        else:
-            if(j==2 and len(moveInfoList)>0):
-                ChessBoardString+=" "+str(8-j)+"  "+moveInfoList[0]+" ("+str(moveID)+","+str(prob)+")"
-            elif(j==4 and len(moveInfoList)>1):
-                ChessBoardString+=" "+str(8-j)+"  "+moveInfoList[1]
-            elif(j==4 and len(moveInfoList)>2):
-                ChessBoardString+=" "+str(8-j)+"  "+moveInfoList[2]
-            else:
-                ChessBoardString+=" "+str(8-j)
-        print(ChessBoardString)
-    print("# A B C D E F G H ##")
-    print("###### -Board ######")
+    moveEvals = np.ones(numMoves, dtype = np.float64)
+    for move, moveEval in zip(allMoves, moveEvals):
+        move.MoveEvaluation = moveEval
 
 
 @njit(cache = True)
