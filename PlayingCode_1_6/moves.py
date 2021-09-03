@@ -78,9 +78,9 @@ def checkMove(player, opponent, chessBoard, piece, piecePos, delta):
 
 @nb.njit(cache = True)
 def willPlayerBeInCheck(chessBoard, move, noOutputMode) -> nb.types.boolean:
-    isPlayerInCheckBeforeMove = chessBoard.IsPlayerInCheck # muss noch geändert werden
-    castlingBeforeMove =        chessBoard.Castling.copy()
-    enPassantBeforeMove =       chessBoard.EnPassant
+    isPlayerInCheckBeforeMove = chessBoard.BoardInformation.IsPlayerInCheck # muss noch geändert werden
+    castlingBeforeMove =        chessBoard.BoardInformation.Castling.copy()
+    enPassantBeforeMove =       chessBoard.BoardInformation.EnPassant
 
     """
     print("move.PieceNum =", move.PieceNum)
@@ -98,7 +98,7 @@ def willPlayerBeInCheck(chessBoard, move, noOutputMode) -> nb.types.boolean:
         chessBoard.printChessBoard("move")
 
     chessBoard.setIsPlayerInCheck()
-    willPlayerBeInCheck = chessBoard.IsPlayerInCheck
+    willPlayerBeInCheck = chessBoard.BoardInformation.IsPlayerInCheck
 
     chessBoard.reverseMove(move, castlingBeforeMove, enPassantBeforeMove, isPlayerInCheckBeforeMove)
     if __debug__:
@@ -262,7 +262,7 @@ class MoveManager(object):
         castlingMoves = []
         capturedPieceNum = 0
 
-        if(chessBoard.Castling[0][0] == 1 and chessBoard.Board[0][1] == 0 and chessBoard.Board[0][2] == 0 and chessBoard.Board[0][3] == 0): #castling long
+        if(chessBoard.BoardInformation.Castling[0][0] == 1 and chessBoard.Board[0][1] == 0 and chessBoard.Board[0][2] == 0 and chessBoard.Board[0][3] == 0): #castling long
             if __debug__:
                 debugMessage = "".join(["Adding castling LONG to player ", self.CurrentPlayer,"'s castlingMoves."])
                 printDebug(debugMessage, fName = "getCastlingMoves", cName = self.ClassName)
@@ -282,7 +282,7 @@ class MoveManager(object):
             if not helper_willPlayerBeInCheck:
                 castlingMoves.append(moveObject)
 
-        if(chessBoard.Castling[0][1] == 1 and chessBoard.Board[0][6] == 0 and chessBoard.Board[0][5] == 0): #castling short
+        if(chessBoard.BoardInformation.Castling[0][1] == 1 and chessBoard.Board[0][6] == 0 and chessBoard.Board[0][5] == 0): #castling short
             if __debug__:
                 debugMessage = "".join(["Adding castling SHORT to player ", self.CurrentPlayer,"'s castlingMoves."])
                 printDebug(debugMessage, fName = "getCastlingMoves", cName = self.ClassName)
@@ -311,7 +311,7 @@ class MoveManager(object):
             printDebug(debugMessage, fName = "findEnPassantMoves", cName = self.ClassName)
 
         enPassantMoves = []
-        newPos = np.array([chessBoard.EnPassant, 5])
+        newPos = np.array([chessBoard.BoardInformation.EnPassant, 5])
         capturedPieceNum = 6 #only pawns can be captured via en-passant 
         
         moveObject = MoveInformation(self.Piece, self.Piece, self.PiecePos, newPos, capturedPieceNum) # vielleicht piece = 6 hier?

@@ -320,7 +320,7 @@ def moveProbs(allMoves):
     numMoves = len(allMoves)
     """
     Num_layers = len(Sizes)
-    if("SelfplayNetwork" in boardpositions.GameMode):# and boardpositions.CurrentPlayer==1):
+    if("SelfplayNetwork" in boardpositions.GameMode):# and boardpositions.BoardInformation.CurrentPlayer==1):
         #a=np.ascontiguousarray(nnInput[:lenInput].transpose())
         a=nnInp.reshape(780,1)
         for i,(b,w) in enumerate(zip(Biases, Weights)):

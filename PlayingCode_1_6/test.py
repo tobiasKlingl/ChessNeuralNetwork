@@ -15,24 +15,25 @@ def play(gameNumber):
     searchDepth = 20
     
     mD = getMoveDict()
-    
-    chessBoard =  Board.ChessBoard(noOutputMode, coloredOutput)
-    pieceBoards = Board.PieceBoards(noOutputMode)
-    boardManager = Board.BoardManager(chessBoard, pieceBoards, mD, noOutputMode, coloredOutput)
-    boardManager.initializePieceBoards()
+
+    boardInformation = Board.BoardInformation(noOutputMode, coloredOutput)
+    chessBoard = Board.ChessBoard(boardInformation)
+    pieceBoards = Board.PieceBoards(boardInformation)
+    boardManager = Board.BoardManager(boardInformation, chessBoard, pieceBoards, mD)
+    boardManager.initialize()
     boardManager.setPieces()
 
     gameManager = Game.GameManager(boardManager, noOutputMode, coloredOutput)
     finishedInOne = 0
 
     initialPlyNumber = gameManager.PlyNumber
-    initialPlayer =    boardManager.CurrentPlayer
-    initialOpponent =  boardManager.CurrentOpponent
+    initialPlayer =    boardInformation.CurrentPlayer
+    initialOpponent =  boardInformation.CurrentOpponent
 
     printInfo(noOutputMode, "initialPlyNumber, initialPlayer, initialOpponent =", str(initialPlyNumber), initialPlayer, initialOpponent)
 
     while not gameManager.Finished:
-        currentPlayer = gameManager.BoardManager.CurrentPlayer
+        currentPlayer = boardInformation.CurrentPlayer
         
         if coloredOutput:
             printInfo(noOutputMode, "\nGame number " + str(gameNumber) + ": \033[1;31;48m###### Ply ", str(gameManager.PlyNumber), " (player:", currentPlayer + ") ######\033[1;37;48m")    
