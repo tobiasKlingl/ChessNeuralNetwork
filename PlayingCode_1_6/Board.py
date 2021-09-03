@@ -224,11 +224,12 @@ class ChessBoard(object):
         printInfo(self.NoOutputMode, "# A B C D E F G H ##\n###### -Board ######")
 
 
-    def printChessBoardWithInfo(self, moveID = -1, evaluation = 1, moveInfo = nb.typed.List(), arg = "Board-", colored = False):
+    def printChessBoardWithInfo(self, moveID = -1, evaluation = 1.0, moveInfo = nb.typed.List(), arg = "Board-", colored = False):
         lenChessBoard = len(self.Board)
         printInfo(self.NoOutputMode, "######", arg, "######\n## A B C D E F G H #")
 
         bkgColor = "49"
+        printColor = ""
         
         for row in range(lenChessBoard):
             rowInfo = []
@@ -252,7 +253,7 @@ class ChessBoard(object):
                 
             if colored:
                 if row == 6 and len(moveInfo) > 0:
-                    rowInfo.append(" ".join(["\033[1;37;49m", str(row + 1), moveInfo[0], "(\033[1;32;49m" + str(moveID) + "," + str(evaluation) + ")"]))
+                    rowInfo.append(" ".join(["\033[1;37;49m", str(row + 1), moveInfo[0], "(\033[1;32;49m" + str(moveID) + "," + fn.floatToString(evaluation) + ")"]))
                 elif row == 4 and len(moveInfo) > 1:
                     rowInfo.append(" ".join(["\033[1;37;49m", str(row + 1), moveInfo[1]]))
                 elif row == 2 and len(moveInfo) > 2:
@@ -261,7 +262,7 @@ class ChessBoard(object):
                     rowInfo.append(" ".join(["\033[1;37;49m", str(row + 1)]))
             else:
                 if row == 6 and len(moveInfo) > 0:
-                    rowInfo.append(" ".join(["", str(row + 1), moveInfo[0], "(" + str(moveID) + "," + str(evaluation) + ")"]))
+                    rowInfo.append(" ".join(["", str(row + 1), moveInfo[0], "(" + str(moveID) + "," + fn.floatToString(evaluation) + ")"]))
                 elif row == 4 and len(moveInfo) > 1:
                     rowInfo.append(" ".join(["", str(row + 1), moveInfo[1]]))
                 elif row == 4 and len(moveInfo) > 2:
@@ -274,15 +275,16 @@ class ChessBoard(object):
         printInfo(self.NoOutputMode, "# A B C D E F G H ##\n###### -Board ######")
 
 
+
 ############################################################################################################################
 #### jited PieceBoards class ############################################################################################### 
 ############################################################################################################################
 
 PieceBoardsSpecs = [
-    ('ClassName',   nb.types.string),
-    ('PieceBoards', nb.types.Array(nb.types.float64, 4, 'C')), #nb.int64[:,:,:,:]),
-    ('Pieces',          nb.types.DictType(nb.types.string, nb.types.int64)), #nb.types.ListType(nb.types.string)),
-    ('NoOutputMode',    nb.boolean),
+    ('ClassName',    nb.types.string),
+    ('PieceBoards',  nb.types.Array(nb.types.float64, 4, 'C')),
+    ('Pieces',       nb.types.DictType(nb.types.string, nb.types.int64)),
+    ('NoOutputMode', nb.boolean),
 ]
 
 @jitclass(PieceBoardsSpecs)
@@ -345,7 +347,7 @@ class PieceBoards(object):
         playerIdx = fn.getPlayerIndex(player)
         pieceIdx = self.Pieces[piece] - 1
         self.PieceBoards[playerIdx][pieceIdx][newPos[1]][newPos[0]] = 1
-        
+
 
 ############################################################################################################################
 #### jited BoardManager class ############################################################################################## 
@@ -534,7 +536,7 @@ class BoardManager(object):
         if writeMoveInfoList:
             oldPosReadable = fn.getReadablePosition(self.CurrentPlayer, move.PiecePos)
             newPosReadable = fn.getReadablePosition(self.CurrentPlayer, move.NewPos)
-            returnStringList.append(" ".join(["Player ", self.CurrentPlayer + ":", move.Piece, "from", oldPosReadable, "to", newPosReadable]))
+            returnStringList.append(" ".join([" ", "Player ", self.CurrentPlayer + ":", move.Piece, "from", oldPosReadable, "to", newPosReadable]))
 
         #########################
         #-#-# Capture Moves #-#-#
@@ -548,10 +550,10 @@ class BoardManager(object):
                 self.removePiece(self.CurrentOpponent, "pawn", oppPawnPos)
 
                 if writeMoveInfoList:
-                    returnStringList.append(" ".join(["Player", self.CurrentPlayer, "captured", fn.getPieceName(move.CapturedPieceNum), "via en-passant"]))
+                    returnStringList.append(" ".join([" ", "Player", self.CurrentPlayer, "captured", fn.getPieceName(move.CapturedPieceNum), "via en-passant"]))
             elif not move.IsEnpassantMove:
                 if writeMoveInfoList:
-                    returnStringList.append(" ".join(["Player", self.CurrentPlayer, "captured", fn.getPieceName(move.CapturedPieceNum), "at", newPosReadable]))
+                    returnStringList.append(" ".join([" ", "Player", self.CurrentPlayer, "captured", fn.getPieceName(move.CapturedPieceNum), "at", newPosReadable]))
 
                 for pieceOpp in self.PieceBoards.Pieces:
                     self.removePiece(self.CurrentOpponent, pieceOpp, move.NewPos)
@@ -564,7 +566,7 @@ class BoardManager(object):
         #-#-# Promotion Moves #-#-#
         ###########################
         if move.IsPromotionMove and writeMoveInfoList:
-            returnStringList.append(" ".join(["Player", self.CurrentPlayer, "'s promoted his pawn to a", move.NewPiece, "at", newPosReadable]))
+            returnStringList.append(" ".join([" ", "Player", self.CurrentPlayer, "'s promoted his pawn to a", move.NewPiece, "at", newPosReadable]))
 
         ##########################
         #-#-# Castling Moves #-#-#
@@ -578,7 +580,7 @@ class BoardManager(object):
             self.ChessBoard.Castling[0] = nb.typed.List([False, False])
 
             if(writeMoveInfoList):
-                returnStringList.append(" ".join(["Player", self.CurrentPlayer, "castled long"]))
+                returnStringList.append(" ".join([" ", "Player", self.CurrentPlayer, "castled long"]))
         elif move.IsCastlingShort:
             if __debug__:
                 printDebug(" ".join(["Player", self.CurrentPlayer, "is CASTLING short!"]), fName = "playMove", cName = self.ClassName)
@@ -588,7 +590,7 @@ class BoardManager(object):
             self.ChessBoard.Castling[0] = nb.typed.List([False, False])
 
             if(writeMoveInfoList):
-                returnStringList.append(" ".join(["Player", self.CurrentPlayer, "castled short"]))
+                returnStringList.append(" ".join([" ", "Player", self.CurrentPlayer, "castled short"]))
 
         ###############################
         #-#-# King and Rook Moves #-#-#

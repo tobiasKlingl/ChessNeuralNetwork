@@ -119,7 +119,7 @@ MoveInformationSpecs = [
     ('NewPiece',         nb.types.string),
     ('PiecePos',         nb.types.Array(nb.types.int64, 1, 'C')), #nb.types.ListType(nb.int64)),
     ('NewPos',           nb.types.Array(nb.types.int64, 1, 'C')), #nb.types.ListType(nb.int64)),
-    ('__MoveID',         nb.int64),
+    ('MoveID',           nb.int64),
     ('MoveEvaluation',   nb.float64),
     ('CapturedPieceNum', nb.int64),
     ('IsCastlingLong',   nb.boolean),
@@ -136,7 +136,7 @@ class MoveInformation(object):
         self.NewPiece =         newPiece
         self.PiecePos =         piecePos
         self.NewPos =           newPos
-        self.__MoveID =         -1
+        self.MoveID =           -1
         self.MoveEvaluation =  1.0
         self.CapturedPieceNum = capturedPieceNum #0 == no piece captured
         self.IsCastlingLong =   False
@@ -166,9 +166,7 @@ class MoveInformation(object):
         if testSet.count(True) > 1:
             print(testSet)
             printError("More than one entry is greater than 1. testSet :", fName = "setMoveID", cName = self.ClassName)
-            #print(i for i in testSet)
             raise ValueError("More than one entry is greater than 1")
-
 
         startNum = 0
         if not self.IsCastlingLong and not self.IsCastlingShort:
@@ -178,13 +176,15 @@ class MoveInformation(object):
             startNum = fn.getPieceNum("king")
             
         moveString = "".join([str(startNum), str(self.PiecePos[0]), str(self.PiecePos[1]), str(self.NewPos[0]), str(self.NewPos[1])])
-        self.__MoveID = moveDict[moveString]
-        
+        self.MoveID = moveDict[moveString]
+
+    
     def getMoveID(self):
-        if self.__MoveID == -1:
-            printError("".join(["self.__MoveID =", str(self.__MoveID)]), fName = "getMoveID", cName = self.ClassName)
-            raise ValueError("self.__MoveID is not set correctly")
-        return self.__MoveID
+        if self.MoveID == -1:
+            printError("".join(["self.MoveID =", str(self.MoveID)]), fName = "getMoveID", cName = self.ClassName)
+            raise ValueError("self.MoveID is not set correctly")
+
+        return self.MoveID
 
 
 ############################################################################################################################

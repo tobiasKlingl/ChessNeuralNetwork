@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import math
 from timeit import default_timer as timer
 from numba import jit, njit, types, int64, typed
 
@@ -51,6 +52,7 @@ def getPlayerSign(player) -> int64:
     else:
         printError(" ".join([player, "unknown"]), fName = "getPlayerSign")
         raise ValueError("Invalid player name")
+
     return -99
 
     
@@ -96,15 +98,30 @@ def getPieceName(pieceNum) -> types.string:
 
 @njit(cache = True)
 def getOpponent(player) -> types.string:
-    if(player == "white"):
+    if player == "white":
         return "black"
-    elif(player == "black"):
+    elif player == "black":
         return "white"
     else:
         printError(" ".join(["invalid argument for player =", player]), fName = "getOpponent")
-        return ""
+        raise ValueError("Invalid player name")
 
+    
+@njit(cache = True)
+def floatToString(floatnumber) -> str:
+    whole = math.floor(floatnumber)
+    frac = 0
+    digits = float(floatnumber % 1)
+    digitsTimes100 = float(digits) * float(100.0)
 
+    if digitsTimes100 is not None:
+        frac = math.floor(digitsTimes100)
+
+    stringNumber = str(whole) + "." + str(frac)
+
+    return stringNumber
+    
+    
 @njit(cache = True)
 def rand_choice_nb(arr, moves):
     """
@@ -158,18 +175,20 @@ def getReadablePosition(player, position):
     else:
         xpos = ""
         printError("".join(["pos[0]=", str(xPos), " is unknown!"]), fName = "getReadablePosition")
-
-    if  (player == "white"):
+        raise ValueError("Invalid xPos")
+    
+    if player == "white":
         ypos = str(yPos + 1)
-    elif(player == "black"):
+    elif player == "black":
         ypos = str(7 - yPos + 1)
     else:
         ypos = ""
         printError("".join(["player = ", player, " is unknown!"]), fName = "getReadablePosition")
-
+        raise ValueError("Invalid player name")
+    
     readablePosition = xpos + ypos
     if __debug__:
-        printDebug("".join(["Converted position:", makePosString(position), "into:", readablePosition]), fName = "getReadablePosition")
+        printDebug(" ".join(["Converted position:", makePosString(position), "into:", readablePosition]), fName = "getReadablePosition")
 
     return readablePosition
 
@@ -201,87 +220,87 @@ def getPieceUnicode(piece, colored):
     return pieceUnicode
 
 
-@njit(cache=True)
-def createPieceListforPrintOut(readableMoveList,prob,colored=False,debug=False):
-    SortedList=typed.List()
-    pawnMoves  ="  PAWN: "
-    knightMoves="  KNIGHT: "
-    bishopMoves="  BISHOP: "
-    rookMoves  ="  ROOK: "
-    queenMoves ="  QUEEN: "
-    kingMoves  ="  KING: "
-    #+",\033[1;37;49m"+str(prob[ID])+") ; "
-    #+","+str(prob[ID])+") ; "
-    #percentages=prob.astype(np.int32)
-    for i,readableMove in enumerate(readableMoveList):
+@njit(cache = True)
+def createPieceListforPrintOut(readableMoveList, colored = False):
+    SortedList = typed.List()
+    pawnMoves   = "  PAWN: "
+    knightMoves = "  KNIGHT: "
+    bishopMoves = "  BISHOP: "
+    rookMoves   = "  ROOK: "
+    queenMoves  = "  QUEEN: "
+    kingMoves   = "  KING: "
+
+    for i, readableMove in enumerate(readableMoveList):
         if colored:
-            moveWithID="\033[1;34;49m"+readableMove[1]+"->"+readableMove[2]+"\033[1;37;49m(\033[1;32;49m"+readableMove[3]+",\033[1;37;49m"+str(prob[i])+") ; "
+            moveWithID = "".join(["\033[1;34;49m", readableMove[1], " -> ", readableMove[2], "\033[1;37;49m(\033[1;32;49m", readableMove[3], ",\033[1;37;49m", readableMove[4], "); "])
         else:
-            moveWithID=readableMove[1]+"->"+readableMove[2]+"("+readableMove[3]+","+str(prob[i])+") ; "
-        if  (readableMove[0]=="pawn"):
-            pawnMoves+=moveWithID
-        elif(readableMove[0]=="night"):
-            knightMoves+=moveWithID
-        elif(readableMove[0]=="bishop"):
-            bishopMoves+=moveWithID
-        elif(readableMove[0]=="rook"):
-            rookMoves+=moveWithID
-        elif(readableMove[0]=="queen"):
-            queenMoves+=moveWithID
-        elif(readableMove[0]=="king"):
-            kingMoves+=moveWithID
+            moveWithID = "".join([readableMove[1], " -> ", readableMove[2], "(", readableMove[3], ",", readableMove[4], "); "])
+
+        if readableMove[0] == "pawn":
+            pawnMoves += moveWithID
+        elif readableMove[0] == "knight":
+            knightMoves += moveWithID
+        elif readableMove[0] == "bishop":
+            bishopMoves += moveWithID
+        elif readableMove[0] == "rook":
+            rookMoves += moveWithID
+        elif readableMove[0] == "queen":
+            queenMoves += moveWithID
+        elif readableMove[0] == "king":
+            kingMoves += moveWithID
         else:
-            print("ERROR (functions (createPieceListforPrintOut)): unknown pieceName")
+            printError("Unknown pieceName", fName = "createPieceListforPrintOut")
+            raise ValueError("Unknown piece name")
+    
     SortedList.append(kingMoves)
     SortedList.append(queenMoves)
     SortedList.append(rookMoves)
     SortedList.append(bishopMoves)
     SortedList.append(knightMoves)
     SortedList.append(pawnMoves)
+
     return SortedList
 
+
 @njit(cache = True)
-def printMoves(player, moveList, colored, probNormed, debug=False):
+def printMoves(player, allMoves, colored, noOutputMode):
     readableMoveList = typed.List()
-    if(debug): print("moveList=",moveList)
-    for i,move in enumerate(moveList):
-        piece=move[0]
-        pieceName=getPieceName(piece)
-        pieceNew=move[1]
-        pieceNameNew=getPieceName(pieceNew)
-        capturedPiece=move[6]
-        castlingL=move[7]
-        castlingS=move[8]
-        enPassant=move[9]
-        moveID=move[10]
-        pos_before=getReadablePosition(player,move[2],move[3],debug)
-        pos_after=getReadablePosition( player,move[4],move[5],debug)
-        if(castlingL==True):
-            readableMove=[pieceName,pos_before,pos_after+"(White CASTLING long)",str(move[10])]
-        elif(castlingS==True):
-            readableMove=[pieceName,pos_before,pos_after+"(Black CASTLING short)",str(move[10])]
+    
+    for i, move in enumerate(allMoves):
+        pos_before = getReadablePosition(player, move.PiecePos)
+        pos_after = getReadablePosition( player, move.NewPos)
+        if move.IsCastlingLong:
+            readableMove = [move.Piece, pos_before, pos_after + "(White CASTLING long)", str(move.MoveID), floatToString(move.MoveEvaluation)]
+        elif move.IsCastlingShort:
+            readableMove = [move.Piece, pos_before, pos_after + "(Black CASTLING short)", str(move.MoveID), floatToString(move.MoveEvaluation)]
         else:
-            readableMove=[pieceName,pos_before,pos_after,str(move[10])]
-        if(capturedPiece!=0):
-            if(enPassant!=0):
-                readableMove[2]+="(Piece CAPTURED via en-passant)"
-            elif(abs(piece)==6 and abs(pieceNew)!=6):
-                readableMove[2]+="(Piece CAPTURED + promtion: "+pieceNameNew+")"
+            readableMove = [move.Piece, pos_before, pos_after, str(move.MoveID), floatToString(move.MoveEvaluation)]
+
+        if move.CapturedPieceNum != 0:
+            if move.IsEnpassantMove:
+                readableMove[2] += "(Piece CAPTURED via en-passant)"
+            elif move.Piece == "pawn" and move.NewPiece != "pawn":
+                readableMove[2] += "(Piece CAPTURED + promotion: " + move.NewPiece + ")"
             else:
-                readableMove[2]+="(Piece CAPTURED)"
+                readableMove[2] += "(Piece CAPTURED)"
         else:
-            if(abs(piece)==6 and abs(pieceNew)!=6):
-                readableMove[2]+="(promotion: "+pieceNameNew+")"
-        if(debug):
-            print("DEBUG (functions (printMoves)): readableMove=",readableMove)
+            if move.Piece == "pawn" and move.NewPiece != "pawn":
+                readableMove[2] += "(promotion: " + move.NewPiece + ")"
+        if __debug__:
+            printDebug("readableMove:", fName = "printMoves")
+            print(readableMove)
+
         readableMoveList.append(readableMove)
-    SortedLists=createPieceListforPrintOut(readableMoveList,probNormed,colored,debug)
-    print("INFO (functions (printMoves)): Moves for player",player,":")
-    for list in SortedLists:
-        print(list)
+
+    SortedLists = createPieceListforPrintOut(readableMoveList, colored)
+
+    if not noOutputMode:
+        print("Moves for player", player, ":")
+        for list in SortedLists:
+            print(list)
 
 
-@njit(cache=True)
+@njit(cache = True)
 def getNNInput(boardpositions, move, debug, noOutputMode):
 
     if(debug): quickPrint(boardpositions,"reset")
@@ -350,18 +369,3 @@ def getPositions(chessBoard, playerSign):
                 kPos.append(np.array([col, row], dtype = np.int64))
 
     return [kPos, qPos, rPos, bPos, nPos, pPos]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
