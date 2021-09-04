@@ -35,35 +35,14 @@ class GameManager(object):
         self.ColoredOutput = coloredOutput
 
 
-    def getPiecesOnBoard(self) -> (nb.typed.List(), nb.typed.List()):
-        printInfo(self.NoOutputMode, "Less than 9 moves available! Check if game is decided.")
-        
-        playerSign = self.BoardManager.Players[self.BoardManager.BoardInformation.CurrentPlayer]
-        oppSign =    self.BoardManager.Players[self.BoardManager.BoardInformation.CurrentOpponent]
-        playerPieces =   nb.typed.List()
-        opponentPieces = nb.typed.List()
-
-        for row in self.BoardManager.ChessBoard.Board:
-            for col in row:
-                if playerSign * col > 0:
-                    playerPieces.append(fn.getPieceName(playerSign * col))
-                elif oppSign * col > 0:
-                    opponentPieces.append(fn.getPieceName(oppSign * col))
-
-        if not self.NoOutputMode:
-            print("playerPieces = ", playerPieces)
-            print("opponentPieces = ", opponentPieces)
-            
-        return playerPieces, opponentPieces
-
-
     def getMoveNumToPlay(self, allMoves) -> nb.int64:
         numMoves = len(allMoves)
 
-        if self.GameMode == "SelfplayRandomVsRandom" or (self.GameMode == "SelfplayNetworkVsRandom" and self.BoardManager.BoardInformation.CurrentPlayer == "black"):
+        if self.GameMode == "SelfplayRandomVsRandom" or (self.GameMode == "SelfplayNetworkVsRandom" and self.BoardManager.BoardInfo.CurrentPlayer == "black"):
             printInfo(self.NoOutputMode, "Random mover is moving now!")
-            n_move = random.randint(0, numMoves - 1)
-        elif self.GameMode == "SelfplayNetworkVsNetwork" or (self.GameMode == "SelfplayNetworkVsRandom" and self.BoardManager.BoardInformation.CurrentPlayer == "white"):
+            n_move = fn.rand_choice_nb(np.arange(numMoves), allMoves)
+            #n_move = random.randint(0, numMoves - 1)
+        elif self.GameMode == "SelfplayNetworkVsNetwork" or (self.GameMode == "SelfplayNetworkVsRandom" and self.BoardManager.BoardInfo.CurrentPlayer == "white"):
             printInfo(self.NoOutputMode, "Neural network is moving now!")
             n_move = fn.rand_choice_nb(np.arange(numMoves), allMoves)
 
@@ -72,8 +51,21 @@ class GameManager(object):
         return n_move
 
     
-    def findNextMove(self) -> (nb.int64, nb.float64):
+    def gameEnded(self):
+        if self.BoardManager.BoardInfo.IsPlayerInCheck:
+            printInfo(self.NoOutputMode, "Player", self.BoardManager.BoardInfo.CurrentPlayer, "is CHECKMATE!")
+            self.Winner = self.BoardManager.BoardInfo.CurrentOpponent
+        elif not self.BoardManager.BoardInfo.IsPlayerInCheck:
+            printInfo(self.NoOutputMode, "Player", self.BoardManager.BoardInfo.CurrentPlayer, "has no more moves available => Remis.")
+            self.Winner = "draw"
+
+        self.Finished = True
+
+        
+    def nextMove(self) -> (nb.int64, nb.float64):
         self.BoardManager.ChessBoard.setIsPlayerInCheck()
+        if self.BoardManager.BoardInfo.IsPlayerInCheck:
+            printInfo(self.NoOutputMode, self.BoardManager.BoardInfo.CurrentPlayer, "is in CHECK!")
         
         self.Finished = False
         moveID = -1
@@ -81,21 +73,16 @@ class GameManager(object):
 
         allMoves = self.BoardManager.getAllowedMovesList()
         numMoves = len(allMoves)
-        print("lenAllMoves =", numMoves)
-        
-        if numMoves == 0: #No more moves available 0
-            if self.BoardManager.BoardInformation.IsPlayerInCheck:
-                printInfo(self.NoOutputMode, "Player", self.BoardManager.BoardInformation.CurrentPlayer, "is CHECKMATE!")
-                self.Winner = self.BoardManager.BoardInformation.CurrentOpponent
-            elif not self.BoardManager.BoardInformation.IsPlayerInCheck:
-                printInfo(self.NoOutputMode, "Player", self.BoardManager.BoardInformation.CurrentPlayer, "has no more moves available => Remis.")
-                self.Winner = "draw"
+        printInfo(self.NoOutputMode, "Number of available moves =", str(numMoves))
 
-            self.Finished = True
+        if numMoves == 0: #No more moves available
+            self.gameEnded()
         elif numMoves > 0:
             if numMoves <= 8:
                 #Check if only king is left and opponent can still win!
-                playerPieces, opponentPieces = self.getPiecesOnBoard()
+                if not self.BoardManager.BoardInfo.NoOutputMode:
+                    print("Less than 9 moves available! Check if game is decided.")
+                playerPieces, opponentPieces = self.BoardManager.ChessBoard.getPiecesOnBoard()
                 
                 if len(playerPieces) == 1:
                     if len(opponentPieces) > 2 or len(opponentPieces) > 1 and ("rook" in opponentPieces or "queen" in opponentPieces):
@@ -103,11 +90,11 @@ class GameManager(object):
                             if move.CapturedPieceNum > 0:
                                 moveInfoList = self.BoardManager.playMove(move, writeMoveInfoList = True)
                                 if not self.NoOutputMode:
-                                    self.BoardManager.ChessBoard.printChessBoardWithInfo(moveID = move.getMoveID(), evaluation = 1.0, moveInfo = moveInfoList, colored = self.ColoredOutput)
+                                    self.BoardManager.ChessBoard.printChessBoardWithInfo(moveID = move.getMoveID(), evaluation = move.Evaluation, moveInfo = moveInfoList, colored = self.ColoredOutput)
                                 self.Finished = False
                                 return -1, 1
 
-                        self.Winner = self.BoardManager.BoardInformation.CurrentOpponent
+                        self.Winner = self.BoardManager.BoardInfo.CurrentOpponent
                         self.Finished = True
                         return -1, 1
                     elif len(opponentPieces) == 2 and ("bishop" in opponentPieces or "knight" in opponentPieces):
@@ -116,40 +103,36 @@ class GameManager(object):
                         return -1, 1
 
             if not self.NoOutputMode:
-                fn.printMoves(self.BoardManager.BoardInformation.CurrentPlayer, allMoves, self.ColoredOutput, self.NoOutputMode)
+                fn.printMoves(self.BoardManager.BoardInfo.CurrentPlayer, allMoves, self.ColoredOutput, self.NoOutputMode)
             
             n_move = self.getMoveNumToPlay(allMoves)
             move = allMoves[n_move]
             moveID = move.getMoveID()
-            moveEval = move.MoveEvaluation
             
             moveInfoList = self.BoardManager.playMove(move, True)
 
             if not self.NoOutputMode:
-                self.BoardManager.ChessBoard.printChessBoardWithInfo(moveID = moveID, evaluation = moveEval, moveInfo = moveInfoList, colored = self.ColoredOutput)
-                print("self.BoardManager.BoardInformation.Castling/ EnPassant =",  self.BoardManager.BoardInformation.Castling, "/", self.BoardManager.BoardInformation.EnPassant)
+                self.BoardManager.ChessBoard.printChessBoardWithInfo(moveID = moveID, evaluation = move.Evaluation, moveInfo = moveInfoList, colored = self.ColoredOutput)
+                print("BoardManager.BoardInfo.Castling =",  self.BoardManager.BoardInfo.Castling)
+                print("BoardManager.BoardInfo.EnPassant =", self.BoardManager.BoardInfo.EnPassant)
                 
-        return moveID, moveEval
+        return moveID, move.Evaluation
 
 
-    def nextPly(self):
+    def increasePlyNumber(self):
         # Reverse the board
-        if self.BoardManager.BoardInformation.Reversed:
-            self.BoardManager.BoardInformation.Reversed = False
-        elif not self.BoardManager.BoardInformation.Reversed:
-            self.BoardManager.BoardInformation.Reversed = True
+        if self.BoardManager.BoardInfo.Reversed:
+            self.BoardManager.BoardInfo.Reversed = False
+        elif not self.BoardManager.BoardInfo.Reversed:
+            self.BoardManager.BoardInfo.Reversed = True
 
         self.BoardManager.ChessBoard.Board[:] = self.BoardManager.ChessBoard.Board[::-1]
         self.BoardManager.PieceBoards.BitBoards = np.ascontiguousarray(self.BoardManager.PieceBoards.BitBoards[:,:,::-1])
 
-        # Reverse the castling properties
-        self.BoardManager.BoardInformation.Castling[:] =      self.BoardManager.BoardInformation.Castling[::-1]
-        self.BoardManager.BoardInformation.KingPositions[:] = self.BoardManager.BoardInformation.KingPositions[::-1]
-
         # Reverse player and opponent
-        helperPlayer = self.BoardManager.BoardInformation.CurrentOpponent
-        self.BoardManager.BoardInformation.CurrentOpponent = self.BoardManager.BoardInformation.CurrentPlayer
-        self.BoardManager.BoardInformation.CurrentPlayer = helperPlayer
+        helperPlayer = self.BoardManager.BoardInfo.CurrentOpponent
+        self.BoardManager.BoardInfo.CurrentOpponent = self.BoardManager.BoardInfo.CurrentPlayer
+        self.BoardManager.BoardInfo.CurrentPlayer = helperPlayer
 
         # Increment ply number
         self.PlyNumber += 1

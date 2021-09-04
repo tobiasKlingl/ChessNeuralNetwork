@@ -2,7 +2,7 @@ import numpy as np
 import random
 import math
 from timeit import default_timer as timer
-from numba import jit, njit, types, int64, typed
+from numba import jit, njit, types, int64, float64, typed
 
 
 @njit(cache = True)
@@ -76,6 +76,27 @@ def getPieceNum(piece) -> int64:
         printError(" ".join([piece, "unknown"]), fName = "getPieceNum")
         raise ValueError("Invalid piece name")
 
+
+@njit(cache = True)
+def getPieceValue(piece) -> float64:
+    if(piece == "king"):
+        return 0.
+    elif(piece == "queen"):
+        return 10.
+    elif(piece == "rook"):
+        return 5.
+    elif(piece == "bishop"):
+        return 3.
+    elif(piece == "knight"):
+        return 3.
+    elif(piece == "pawn"):
+        return 1.
+    elif(piece == ""): #needed to handle "non-pawn promotion" moves
+        return 0.
+    else:
+        printError(" ".join([piece, "unknown"]), fName = "getPieceNum")
+        raise ValueError("Invalid piece name")
+    
     
 @njit(cache = True)
 def getPieceName(pieceNum) -> types.string:
@@ -91,6 +112,8 @@ def getPieceName(pieceNum) -> types.string:
         return "knight"
     elif(pieceNum == 6):
         return "pawn"
+    elif(pieceNum == 0):
+        return ""
     else:
         printError(" ".join([str(pieceNum), "unknown"]), fName = "getPieceName")
         raise ValueError("Invalid piece number")
@@ -109,15 +132,18 @@ def getOpponent(player) -> types.string:
     
 @njit(cache = True)
 def floatToString(floatnumber) -> str:
-    whole = math.floor(floatnumber)
-    frac = 0
+    whole = str(math.floor(floatnumber))
+    frac = "0"
     digits = float(floatnumber % 1)
     digitsTimes100 = float(digits) * float(100.0)
 
     if digitsTimes100 is not None:
-        frac = math.floor(digitsTimes100)
-
-    stringNumber = str(whole) + "." + str(frac)
+        if digitsTimes100 < 10:
+            frac = "0" + str(math.floor(digitsTimes100))
+        else:
+            frac = str(math.floor(digitsTimes100))
+        
+    stringNumber = whole + "." + frac
 
     return stringNumber
     
@@ -131,9 +157,9 @@ def rand_choice_nb(arr, moves):
     """
     nMoves = len(moves)
 
-    moveEvaluations = np.ones(nMoves, dtype=np.float64)
+    moveEvaluations = np.ones(nMoves, dtype = np.float64)
     for i, move in enumerate(moves):
-        moveEvaluations[i] = move.MoveEvaluation
+        moveEvaluations[i] = move.Evaluation
     
     s = np.sum(moveEvaluations)
     probNormed = moveEvaluations/s
@@ -141,23 +167,6 @@ def rand_choice_nb(arr, moves):
     #return 1
     return arr[np.searchsorted(np.cumsum(probNormed), np.random.random(), side = "right")]
 
-
-@njit(cache = True)
-def evaluatePosition(chessBoard):
-    evaluation = 0
-    for row in chessBoard:
-        for col in row:
-            if   abs(col) == 2: evaluation += np.sign(col) * 10
-            elif abs(col) == 3: evaluation += np.sign(col) * 5
-            elif abs(col) == 4: evaluation += np.sign(col) * 3
-            elif abs(col) == 5: evaluation += np.sign(col) * 3
-            elif abs(col) == 6: evaluation += np.sign(col) * 1
-            
-    if __debug__:
-        printDebug("".join(["Evaluation = ", evaluation]), fName = "evaluatePosition")
-
-    return evaluation
-                
 
 @njit(cache = True)
 def getReadablePosition(player, position):
@@ -232,9 +241,9 @@ def createPieceListforPrintOut(readableMoveList, colored = False):
 
     for i, readableMove in enumerate(readableMoveList):
         if colored:
-            moveWithID = "".join(["\033[1;34;49m", readableMove[1], " -> ", readableMove[2], "\033[1;37;49m(\033[1;32;49m", readableMove[3], ",\033[1;37;49m", readableMove[4], "); "])
+            moveWithID = "".join(["\033[1;34;49m", readableMove[1], "->", readableMove[2], "\033[1;37;49m(\033[1;32;49m", readableMove[3], ",\033[1;37;49m", readableMove[4], "); "])
         else:
-            moveWithID = "".join([readableMove[1], " -> ", readableMove[2], "(", readableMove[3], ",", readableMove[4], "); "])
+            moveWithID = "".join([readableMove[1], "->", readableMove[2], "(", readableMove[3], ",", readableMove[4], "); "])
 
         if readableMove[0] == "pawn":
             pawnMoves += moveWithID
@@ -270,11 +279,14 @@ def printMoves(player, allMoves, colored, noOutputMode):
         pos_before = getReadablePosition(player, move.PiecePos)
         pos_after = getReadablePosition( player, move.NewPos)
         if move.IsCastlingLong:
-            readableMove = [move.Piece, pos_before, pos_after + "(White CASTLING long)", str(move.MoveID), floatToString(move.MoveEvaluation)]
+            readableMove = [move.Piece, pos_before, pos_after + "(White CASTLING long)", str(i), floatToString(move.Evaluation)]
+            #readableMove = [move.Piece, pos_before, pos_after + "(White CASTLING long)", str(move.MoveID), floatToString(move.Evaluation)]
         elif move.IsCastlingShort:
-            readableMove = [move.Piece, pos_before, pos_after + "(Black CASTLING short)", str(move.MoveID), floatToString(move.MoveEvaluation)]
+            readableMove = [move.Piece, pos_before, pos_after + "(Black CASTLING short)", str(i), floatToString(move.Evaluation)]
+            #readableMove = [move.Piece, pos_before, pos_after + "(Black CASTLING short)", str(move.MoveID), floatToString(move.Evaluation)]
         else:
-            readableMove = [move.Piece, pos_before, pos_after, str(move.MoveID), floatToString(move.MoveEvaluation)]
+            readableMove = [move.Piece, pos_before, pos_after, str(i), floatToString(move.Evaluation)]
+            #readableMove = [move.Piece, pos_before, pos_after, str(move.MoveID), floatToString(move.Evaluation)]
 
         if move.CapturedPieceNum != 0:
             if move.IsEnpassantMove:
@@ -341,7 +353,7 @@ def moveProbs(allMoves):
     """
     moveEvals = np.ones(numMoves, dtype = np.float64)
     for move, moveEval in zip(allMoves, moveEvals):
-        move.MoveEvaluation = moveEval
+        move.Evaluation = moveEval
 
 
 @njit(cache = True)
@@ -369,3 +381,29 @@ def getPositions(chessBoard, playerSign):
                 kPos.append(np.array([col, row], dtype = np.int64))
 
     return [kPos, qPos, rPos, bPos, nPos, pPos]
+
+
+#########################################
+### functions for playGames.py script ###
+#########################################
+@njit(cache = True)
+def getOutputVal(gameNumber, plyNumber, initialPlayer, initialOpponent, winner, coloredOutput, noOutputMode):
+    if coloredOutput:
+        textColor, resetColor = "\033[1;31;49m", "\033[1;37;49m"
+    else:
+        textColor, resetColor = "", ""
+
+    if winner == initialPlayer:
+        won = 1.
+        printInfo(noOutputMode, textColor + str(gameNumber) + ": Player", winner, "won in", str(plyNumber), "plys!", resetColor)
+    elif winner == initialOpponent:
+        won = 0.
+        printInfo(noOutputMode, textColor + str(gameNumber) + ": Player", winner, "won in", str(plyNumber), "plys!", resetColor)
+    elif winner == "draw":
+        won = 0.5
+        printInfo(noOutputMode, textColor + str(gameNumber) + ": Game ended remis!", resetColor)
+    else:
+        won = -99.
+        printError(" ".join([str(gameNumber) + ": ERROR: Unknown value for winner! winner =", winner]), fName = "getOutputVal")
+
+    return won
